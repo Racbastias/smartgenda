@@ -1,0 +1,62 @@
+name: Deploy a Hostinger
+
+# Publica en Hostinger por SSH cada vez que se actualiza main y los tests pasan.
+# Requiere estos secretos en GitHub (Settings → Secrets and variables → Actions):
+#   HOSTINGER_HOST, HOSTINGER_PORT (normalmente 65002), HOSTINGER_USER,
+#   HOSTINGER_SSH_KEY (clave privada), HOSTINGER_PATH (ej. domains/agenda.midominio.cl/smartgenda)
+# Mientras no estén configurados, el deploy se salta sin fallar.
+
+on:
+  workflow_run:
+    workflows: [Tests]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+
+concurrency: deploy
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    env:
+      HOST: ${{ secrets.HOSTINGER_HOST }}
+      PORT: ${{ secrets.HOSTINGER_PORT }}
+      USER: ${{ secrets.HOSTINGER_USER }}
+      TARGET: ${{ secrets.HOSTINGER_PATH }}
+    steps:
+      - name: Verificar secretos
+        id: check
+        run: |
+          if [ -z "$HOST" ] || [ -z "$USER" ] || [ -z "$TARGET" ]; then
+            echo "Faltan secretos de Hostinger; no se publica."; echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.skip != 'true'
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: shivammathur/setup-php@v2
+        if: steps.check.outputs.skip != 'true'
+        with:
+          php-version: '8.3'
+          tools: composer
+
+      - name: Instalar dependencias de producción
+        if: steps.check.outputs.skip != 'true'
+        run: composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+
+      - name: Copiar al servidor y migrar
+        if: steps.check.outputs.skip != 'true'
+        env:
+          SSH_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh && echo "$SSH_KEY" > ~/.ssh/id && chmod 600 ~/.ssh/id
+          SSH="ssh -i ~/.ssh/id -p ${PORT:-65002} -o StrictHostKeyChecking=accept-new"
+          rsync -az --delete -e "$SSH" \
+            --exclude .git --exclude .github --exclude tests --exclude node_modules \
+            --exclude .env --exclude storage/ --exclude database/database.sqlite \
+            ./ "$USER@$HOST:$TARGET/"
+          $SSH "$USER@$HOST" "cd $TARGET && mkdir -p storage/framework/{cache,sessions,views} storage/logs \
+            && php artisan migrate --force && php artisan config:cache && php artisan route:cache && php artisan view:cache"
