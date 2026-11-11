@@ -1,0 +1,94 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Calendar\CalendarSync;
+use App\Calendar\ConflictDetector;
+use App\Calendar\EventData;
+use App\Models\Event;
+use Carbon\CarbonImmutable;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\View\View;
+use Throwable;
+
+class AgendaController extends Controller
+{
+    public function index(Request $request): View
+    {
+        return view('agenda.index', [
+            'accounts' => $request->user()->calendarAccounts()->orderBy('name')->get(),
+        ]);
+    }
+
+    /** Eventos de todas las agendas del usuario en el rango que pide el calendario. */
+    public function events(Request $request, ConflictDetector $detector): JsonResponse
+    {
+        $data = $request->validate([
+            'start' => ['required', 'date'],
+            'end' => ['required', 'date', 'after:start'],
+        ]);
+        $from = CarbonImmutable::parse($data['start'])->utc();
+        $to = CarbonImmutable::parse($data['end'])->utc();
+
+        $events = $request->user()->events()
+            ->with('calendarAccount:id,name,color')
+            ->where('starts_at', '<', $to)
+            ->where('ends_at', '>', $from)
+            ->orderBy('starts_at')
+            ->get();
+
+        $conflicts = $detector->detect($events);
+
+        return response()->json($events->map(fn (Event $e) => [
+            'id' => $e->id,
+            'title' => $e->title,
+            'start' => $e->all_day ? $e->starts_at->toDateString() : $e->starts_at->toIso8601ZuluString(),
+            'end' => $e->all_day ? $e->ends_at->toDateString() : $e->ends_at->toIso8601ZuluString(),
+            'allDay' => $e->all_day,
+            'color' => $e->calendarAccount->color,
+            'classNames' => isset($conflicts[$e->id]) ? ['sg-conflict'] : [],
+            'extendedProps' => [
+                'agenda' => $e->calendarAccount->name,
+                'location' => $e->location,
+                'description' => $e->description,
+                'conflict' => isset($conflicts[$e->id]),
+            ],
+        ])->values());
+    }
+
+    public function store(Request $request, CalendarSync $sync): JsonResponse
+    {
+        $data = $request->validate([
+            'calendar_account_id' => ['required', Rule::exists('calendar_accounts', 'id')->where('user_id', $request->user()->id)],
+            'title' => ['required', 'string', 'max:200'],
+            'start' => ['required', 'date'],
+            'end' => ['required', 'date', 'after:start'],
+            'all_day' => ['boolean'],
+            'location' => ['nullable', 'string', 'max:200'],
+            'description' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $account = $request->user()->calendarAccounts()->findOrFail($data['calendar_account_id']);
+        $allDay = (bool) ($data['all_day'] ?? false);
+
+        try {
+            $event = $sync->create($account, new EventData(
+                remoteId: '',
+                title: $data['title'],
+                startsAt: $allDay ? CarbonImmutable::parse($data['start'], 'UTC')->startOfDay() : CarbonImmutable::parse($data['start'])->utc(),
+                endsAt: $allDay ? CarbonImmutable::parse($data['end'], 'UTC')->startOfDay() : CarbonImmutable::parse($data['end'])->utc(),
+                allDay: $allDay,
+                description: $data['description'] ?? null,
+                location: $data['location'] ?? null,
+            ));
+        } catch (Throwable $e) {
+            report($e);
+
+            return response()->json(['message' => "No se pudo guardar en «{$account->name}»: {$e->getMessage()}"], 502);
+        }
+
+        return response()->json(['id' => $event->id], 201);
+    }
+}
