@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'show'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
+    Route::get('/primer-uso', [AuthController::class, 'setup'])->name('setup');
+    Route::post('/primer-uso', [AuthController::class, 'storeSetup'])->middleware('throttle:5,1');
 });
 
 Route::middleware('auth')->group(function () {

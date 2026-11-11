@@ -34,35 +34,26 @@ Tests: `php artisan test`
 
 ## Deploy en Hostinger
 
-Requiere un plan con acceso SSH (Premium o superior) y PHP 8.3.
+Requiere un plan con SSH (Business sirve) y PHP 8.3 en hPanel → Avanzado → Configuración PHP.
 
-**Una sola vez, en hPanel:**
+**Una sola vez:**
 
-1. Crear el sitio o subdominio (ej. `agenda.midominio.cl`) y una base de datos MySQL.
-2. Activar SSH (hPanel → Avanzado → Acceso SSH) y agregar una clave pública. Guardar la privada para GitHub.
-3. Por SSH, crear la carpeta de la app y el `.env`:
-   ```bash
-   mkdir -p ~/domains/agenda.midominio.cl/smartgenda
-   cd ~/domains/agenda.midominio.cl/smartgenda
-   # copiar .env.example como .env y completar: APP_URL, APP_ENV=production, APP_DEBUG=false,
-   # DB_CONNECTION=mysql y los datos de la base, GOOGLE_* (ver abajo)
-   ```
-4. Hacer que el sitio apunte a la carpeta `public` de la app:
-   ```bash
-   cd ~/domains/agenda.midominio.cl
-   mv public_html public_html.bak && ln -s smartgenda/public public_html
-   ```
-5. En GitHub → Settings → Secrets and variables → Actions, crear `HOSTINGER_HOST`, `HOSTINGER_PORT` (65002), `HOSTINGER_USER`, `HOSTINGER_SSH_KEY` y `HOSTINGER_PATH` (`domains/agenda.midominio.cl/smartgenda`).
-6. Hacer un deploy (push a `main` o Actions → Deploy a Hostinger → Run workflow). Luego, por SSH, una sola vez:
-   ```bash
-   php artisan key:generate && php artisan config:cache
-   php artisan user:create ruben@... "Rubén" --admin
-   ```
-7. hPanel → Avanzado → Cron Jobs: cada minuto
-   `cd ~/domains/agenda.midominio.cl/smartgenda && php artisan schedule:run`
+1. hPanel → Avanzado → Acceso SSH: activar SSH y agregar la clave pública de deploy.
+2. GitHub → Settings → Secrets and variables → Actions, crear:
+   - `HOSTINGER_HOST`, `HOSTINGER_PORT` (65002) y `HOSTINGER_USER`, de la pantalla de Acceso SSH
+   - `HOSTINGER_SSH_KEY`: la clave privada completa
+   - `HOSTINGER_PATH`: `domains/<tu-sitio>/smartgenda`
+   - `APP_URL` (opcional): si no se define, se usa `https://<tu-sitio>`
+3. Fusionar a `main` (o Actions → Deploy a Hostinger → Run workflow). El primer deploy:
+   - crea el `.env` de producción con su `APP_KEY` y una base SQLite,
+   - corre las migraciones,
+   - hace que el sitio sirva la carpeta `public` de la app (el `public_html` original queda como `public_html.bak-<fecha>`).
+4. Abrir el sitio: la primera pantalla pide crear el usuario administrador.
+5. hPanel → Avanzado → Cron Jobs, cada minuto:
+   `cd ~/domains/<tu-sitio>/smartgenda && php artisan schedule:run`
    (sincroniza las agendas cada 10 minutos).
 
-Desde ahí, cada push a `main` con tests en verde se publica solo.
+Desde ahí, cada push a `main` con tests en verde se publica solo. El `.env` y la base de datos del servidor no se tocan en los deploys siguientes. Para usar MySQL en vez de SQLite, editar `DB_*` en el `.env` del servidor.
 
 ### Credenciales de Google (para Aminfo)
 
