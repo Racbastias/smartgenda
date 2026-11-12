@@ -1,92 +1,123 @@
-@extends('layouts.app')
-@section('title', 'Mis agendas')
-@section('content')
-<h1>Mis agendas</h1>
+@php
+    $zimbra = $accounts->where('provider', 'zimbra');
+    $google = $accounts->where('provider', 'google');
+    $icloud = $accounts->filter(fn ($a) => $a->provider === 'caldav' && str_contains((string) $a->server_url, 'icloud.com'));
+    $caldav = $accounts->filter(fn ($a) => $a->provider === 'caldav' && ! str_contains((string) $a->server_url, 'icloud.com'));
+    $oldKind = old('kind');
+@endphp
+<x-app-layout title="Integraciones">
+    <div class="page-head">
+        <div>
+            <h1>Integraciones</h1>
+            <p class="sub">Conecta tus agendas y correos. Cada una conserva su color en Hoy y en la Agenda.</p>
+        </div>
+    </div>
 
-<div class="card">
-    @forelse ($accounts as $account)
-        <div class="row" style="justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)">
-            <div>
-                <span class="dot" style="background:{{ $account->color }}"></span>
-                <strong>{{ $account->name }}</strong>
-                <span class="muted">· {{ ['google' => 'Google', 'zimbra' => 'Zimbra', 'caldav' => 'CalDAV'][$account->provider] ?? $account->provider }}{{ $account->is_default ? ' · predeterminada' : '' }}</span>
-                <div class="muted">
-                    @if ($account->last_error)
-                        <span style="color:var(--danger)">Error: {{ $account->last_error }}</span>
-                    @elseif ($account->last_synced_at)
-                        Sincronizada {{ $account->last_synced_at->diffForHumans() }}
-                    @else
-                        Aún no sincronizada
-                    @endif
+    <div class="integrations">
+        {{-- Zimbra --}}
+        <section class="card">
+            <div class="integration-head">
+                <div class="integration-logo" style="background:#0F172A">Z</div>
+                <div class="grow">
+                    <h2>Zimbra · Zmail</h2>
+                    <p class="small muted">Agenda y correo por la API de Zimbra, con doble factor.</p>
                 </div>
-                @if ($account->provider === 'zimbra' && $account->last_error)
-                    <form method="post" action="{{ route('accounts.reauth', $account) }}" class="row" style="margin-top:8px">
-                        @csrf
-                        <input name="code" inputmode="numeric" autocomplete="one-time-code" placeholder="Código de 6 dígitos" style="width:170px" required>
-                        <input name="password" type="password" placeholder="Contraseña (solo si cambió)" style="width:220px">
-                        <button>Reconectar</button>
-                    </form>
+                @if ($zimbra->isNotEmpty())<span class="badge badge-ok">Conectado</span>@endif
+            </div>
+            <div class="integration-body stack">
+                @foreach ($zimbra as $account)<x-account-row :account="$account"/>@endforeach
+                @if ($zimbra->isEmpty())
+                    @include('accounts.partials.zimbra-form')
+                @else
+                    <details class="more" @if ($oldKind === 'zimbra') open @endif><summary>Conectar otra cuenta Zimbra</summary>@include('accounts.partials.zimbra-form')</details>
                 @endif
             </div>
-            <div class="row">
-                <form method="post" action="{{ route('accounts.sync', $account) }}">@csrf<button class="secondary">Sincronizar</button></form>
-                <a class="btn" style="background:transparent;color:var(--text);border:1px solid var(--line)" href="{{ route('accounts.choose', $account) }}">Cambiar calendario</a>
-                @unless ($account->is_default)
-                    <form method="post" action="{{ route('accounts.update', $account) }}">@csrf @method('patch')<input type="hidden" name="is_default" value="1"><button class="secondary">Usar por defecto</button></form>
-                @endunless
-                <form method="post" action="{{ route('accounts.destroy', $account) }}" onsubmit="return confirm('¿Desconectar {{ $account->name }}? Los eventos siguen en la agenda original.')">@csrf @method('delete')<button class="danger">Desconectar</button></form>
+        </section>
+
+        {{-- Gmail / Google Workspace --}}
+        <section class="card">
+            <div class="integration-head">
+                <div class="integration-logo" style="background:#1D4ED8">G</div>
+                <div class="grow">
+                    <h2>Gmail corporativo</h2>
+                    <p class="small muted">Google Calendar y Gmail de Google Workspace (ej. Aminfo).</p>
+                </div>
+                @if ($google->isNotEmpty())
+                    <span class="badge badge-ok">Conectado</span>
+                @elseif (! $googleConfigured)
+                    <span class="badge">Sin credenciales</span>
+                @endif
             </div>
-        </div>
-    @empty
-        <p class="muted">Todavía no conectas ninguna agenda. Agrega la primera abajo.</p>
-    @endforelse
-</div>
+            <div class="integration-body stack">
+                @foreach ($google as $account)<x-account-row :account="$account"/>@endforeach
+                @if ($googleConfigured)
+                    <form method="post" action="{{ route('accounts.google') }}" class="stack">
+                        @csrf
+                        <label class="field"><span>Nombre</span><input class="input" name="name" placeholder="Aminfo" required></label>
+                        <div class="field"><span>Color</span><x-color-picker value="#1D4ED8"/></div>
+                        <p class="hint">Te llevará a Google para autorizar el acceso a tu calendario y correo.</p>
+                        <p><button class="btn btn-primary">Conectar con Google</button></p>
+                    </form>
+                @else
+                    <p class="small muted">Falta que el administrador de Google Workspace cree las credenciales OAuth. Cuando estén en el servidor, aquí aparecerá el botón para conectar.</p>
+                    <p><button class="btn" disabled>Conectar</button></p>
+                @endif
+            </div>
+        </section>
 
-<div class="grid">
-    <form class="card" method="post" action="{{ route('accounts.store') }}">
-        @csrf
-        <h2>Zimbra, iCloud u otra (CalDAV)</h2>
-        <label for="kind">Tipo</label>
-        <select id="kind" name="kind" onchange="document.getElementById('server-row').hidden = this.value === 'icloud'; document.getElementById('code-row').hidden = this.value !== 'zimbra'">
-            <option value="zimbra" @selected(old('kind') === 'zimbra')>Zimbra (ej. Lilienfeld)</option>
-            <option value="icloud" @selected(old('kind') === 'icloud')>iCloud</option>
-            <option value="caldav" @selected(old('kind') === 'caldav')>Otro servidor CalDAV</option>
-        </select>
-        <label for="c-name">Nombre</label>
-        <input id="c-name" name="name" value="{{ old('name') }}" placeholder="Lilienfeld" required>
-        <label for="c-color">Color</label>
-        <input id="c-color" name="color" type="color" value="{{ old('color', '#16a34a') }}">
-        <div id="server-row" @if (old('kind') === 'icloud') hidden @endif>
-            <label for="server">Servidor</label>
-            <input id="server" name="server" value="{{ old('server') }}" placeholder="correo.empresa.cl">
-            <div class="muted">Para Zimbra basta la dirección del webmail.</div>
-        </div>
-        <label for="username">Usuario</label>
-        <input id="username" name="username" value="{{ old('username') }}" placeholder="nombre@empresa.cl" required>
-        <label for="password">Contraseña</label>
-        <input id="password" name="password" type="password" required>
-        <div class="muted">En iCloud usa una contraseña de aplicación (appleid.apple.com → Inicio de sesión y seguridad).</div>
-        <div id="code-row" @if (old('kind', 'zimbra') !== 'zimbra') hidden @endif>
-            <label for="code">Código de verificación</label>
-            <input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">
-            <div class="muted">Si tu Zimbra usa doble factor, el código de 6 dígitos de tu app autenticadora. Smartgenda queda como dispositivo de confianza y no lo vuelve a pedir hasta que Zimbra lo exija.</div>
-        </div>
-        <p><button>Conectar</button></p>
-    </form>
+        {{-- iCloud --}}
+        <section class="card">
+            <div class="integration-head">
+                <div class="integration-logo" style="background:#64748B"></div>
+                <div class="grow">
+                    <h2>iCloud</h2>
+                    <p class="small muted">Agenda personal por CalDAV.</p>
+                </div>
+                @if ($icloud->isNotEmpty())<span class="badge badge-ok">Conectado</span>@endif
+            </div>
+            <div class="integration-body stack">
+                @foreach ($icloud as $account)<x-account-row :account="$account"/>@endforeach
+                <form method="post" action="{{ route('accounts.store') }}" class="stack" @if ($icloud->isNotEmpty()) hidden @endif id="icloud-form">
+                    @csrf
+                    <input type="hidden" name="kind" value="icloud">
+                    <label class="field"><span>Nombre</span><input class="input" name="name" value="{{ $oldKind === 'icloud' ? old('name') : 'Personal' }}" required></label>
+                    <label class="field"><span>Apple ID</span><input class="input" name="username" type="email" value="{{ $oldKind === 'icloud' ? old('username') : '' }}" placeholder="nombre@icloud.com" autocomplete="username" required></label>
+                    <label class="field"><span>Contraseña de aplicación</span><input class="input" name="password" type="password" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="off" required>
+                        <span class="hint" style="display:block">No es tu contraseña de Apple. Créala en appleid.apple.com → Inicio de sesión y seguridad → Contraseñas de apps.</span></label>
+                    <div class="field"><span>Color</span><x-color-picker :value="$oldKind === 'icloud' ? old('color', '#059669') : '#059669'"/></div>
+                    <p><button class="btn btn-primary">Conectar iCloud</button></p>
+                </form>
+                @if ($icloud->isNotEmpty())
+                    <button class="btn btn-ghost btn-sm" type="button" onclick="document.getElementById('icloud-form').hidden=false;this.remove()">＋ Conectar otro calendario de iCloud</button>
+                @endif
+            </div>
+        </section>
 
-    <form class="card" method="post" action="{{ route('accounts.google') }}">
-        @csrf
-        <h2>Google (ej. Aminfo)</h2>
-        @if ($googleConfigured)
-            <label for="g-name">Nombre</label>
-            <input id="g-name" name="name" placeholder="Aminfo" required>
-            <label for="g-color">Color</label>
-            <input id="g-color" name="color" type="color" value="#2563eb">
-            <p class="muted">Te llevará a Google para autorizar el acceso a tu calendario y correo.</p>
-            <p><button>Conectar con Google</button></p>
-        @else
-            <p class="muted">Falta configurar GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET en el servidor (ver README).</p>
-        @endif
-    </form>
-</div>
-@endsection
+        {{-- Otras agendas CalDAV --}}
+        <section class="card">
+            <div class="integration-head">
+                <div class="integration-logo" style="background:#94A3B8">+</div>
+                <div class="grow">
+                    <h2>Otra agenda (CalDAV)</h2>
+                    <p class="small muted">Cualquier servidor compatible con CalDAV.</p>
+                </div>
+            </div>
+            <div class="integration-body stack">
+                @foreach ($caldav as $account)<x-account-row :account="$account"/>@endforeach
+                <details class="more" @if ($oldKind === 'caldav') open @endif>
+                    <summary>Conectar por CalDAV</summary>
+                    <form method="post" action="{{ route('accounts.store') }}" class="stack">
+                        @csrf
+                        <input type="hidden" name="kind" value="caldav">
+                        <label class="field"><span>Nombre</span><input class="input" name="name" value="{{ $oldKind === 'caldav' ? old('name') : '' }}" required></label>
+                        <label class="field"><span>Servidor</span><input class="input" name="server" value="{{ $oldKind === 'caldav' ? old('server') : '' }}" placeholder="https://dav.ejemplo.com/" required></label>
+                        <label class="field"><span>Usuario</span><input class="input" name="username" value="{{ $oldKind === 'caldav' ? old('username') : '' }}" required></label>
+                        <label class="field"><span>Contraseña</span><input class="input" name="password" type="password" required></label>
+                        <div class="field"><span>Color</span><x-color-picker value="#7C3AED"/></div>
+                        <p><button class="btn btn-primary">Conectar</button></p>
+                    </form>
+                </details>
+            </div>
+        </section>
+    </div>
+</x-app-layout>

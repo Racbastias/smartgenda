@@ -47,9 +47,10 @@ class AgendaController extends Controller
             'start' => $e->all_day ? $e->starts_at->toDateString() : $e->starts_at->toIso8601ZuluString(),
             'end' => $e->all_day ? $e->ends_at->toDateString() : $e->ends_at->toIso8601ZuluString(),
             'allDay' => $e->all_day,
-            'color' => $e->calendarAccount->color,
-            'classNames' => isset($conflicts[$e->id]) ? ['sg-conflict'] : [],
+            'classNames' => isset($conflicts[$e->id]) ? ['ev', 'is-conflict'] : ['ev'],
             'extendedProps' => [
+                'accountId' => $e->calendar_account_id,
+                'color' => $e->calendarAccount->color,
                 'agenda' => $e->calendarAccount->name,
                 'location' => $e->location,
                 'description' => $e->description,

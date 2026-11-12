@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'color', 'provider', 'server_url', 'username', 'secret', 'calendar_ref', 'is_default'])]
+#[Fillable(['name', 'color', 'provider', 'server_url', 'username', 'secret', 'calendar_ref', 'is_default', 'mail_enabled'])]
 #[Hidden(['secret'])]
 class CalendarAccount extends Model
 {
@@ -27,6 +27,8 @@ class CalendarAccount extends Model
             'secret' => 'encrypted',
             'is_default' => 'boolean',
             'last_synced_at' => 'datetime',
+            'mail_enabled' => 'boolean',
+            'mail_synced_at' => 'datetime',
         ];
     }
 
@@ -40,6 +42,18 @@ class CalendarAccount extends Model
     public function events(): HasMany
     {
         return $this->hasMany(Event::class);
+    }
+
+    /** @return HasMany<EmailItem, $this> */
+    public function emailItems(): HasMany
+    {
+        return $this->hasMany(EmailItem::class);
+    }
+
+    /** Por ahora solo Zimbra lee correo (Gmail llega con las credenciales de Google). */
+    public function supportsMail(): bool
+    {
+        return $this->provider === self::ZIMBRA;
     }
 
     public function isConnected(): bool

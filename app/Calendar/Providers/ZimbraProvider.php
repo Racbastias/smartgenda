@@ -6,6 +6,7 @@ use App\Calendar\CalendarProvider;
 use App\Calendar\CalendarSyncException;
 use App\Calendar\EventData;
 use App\Calendar\RemoteCalendar;
+use App\Inbox\MailMessage;
 use App\Models\CalendarAccount;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\PendingRequest;
@@ -142,6 +143,84 @@ class ZimbraProvider implements CalendarProvider
 
         return new EventData($uid, $event->title, $event->startsAt, $event->endsAt, $event->allDay,
             $event->description, $event->location, $event->busy);
+    }
+
+    /**
+     * Correos recibidos en la bandeja de entrada desde $since (los más nuevos primero).
+     *
+     * @return list<MailMessage>
+     */
+    public function fetchMessages(CalendarAccount $account, CarbonImmutable $since, int $limit = 50): array
+    {
+        $response = $this->call($account, fn (string $token) => $this->soap($account, 'SearchRequest', [
+            '_jsns' => 'urn:zimbraMail',
+            'query' => 'in:inbox',
+            'types' => 'message',
+            'sortBy' => 'dateDesc',
+            'limit' => $limit,
+            'fetch' => 'all',   // incluye el cuerpo de cada mensaje
+            'html' => '0',      // texto plano cuando existe
+            'max' => 6000,      // bytes por cuerpo
+            'needExp' => '1',
+        ], $token));
+
+        $messages = [];
+        foreach ($response['m'] ?? [] as $m) {
+            $received = CarbonImmutable::createFromTimestampMs((int) ($m['d'] ?? 0), 'UTC');
+            if ($received->lessThan($since)) {
+                break; // vienen ordenados del más nuevo al más antiguo
+            }
+            $from = collect($m['e'] ?? [])->firstWhere('t', 'f') ?? [];
+            $body = $this->bodyOf($m['mp'] ?? []) ?? $this->text($m['fr'] ?? null) ?? '';
+
+            $messages[] = new MailMessage(
+                remoteId: (string) $m['id'],
+                conversationId: isset($m['cid']) ? (string) $m['cid'] : null,
+                fromName: $from['p'] ?? $from['d'] ?? null,
+                fromEmail: $from['a'] ?? null,
+                subject: $this->text($m['su'] ?? null) ?? '',
+                receivedAt: $received,
+                body: $body,
+                replied: str_contains((string) ($m['f'] ?? ''), 'r'),
+                directlyAddressed: $this->isAddressedTo($m['e'] ?? [], (string) $account->username),
+            );
+        }
+
+        return $messages;
+    }
+
+    /** true si la cuenta está en "Para", o si no se sabe (sin destinatarios visibles, ej. listas). */
+    private function isAddressedTo(array $addresses, string $me): bool
+    {
+        $to = collect($addresses)->where('t', 't')->pluck('a')->map(fn ($a) => mb_strtolower((string) $a));
+
+        return $to->isEmpty() || $to->contains(mb_strtolower($me));
+    }
+
+    /** Texto del cuerpo: la parte marcada como cuerpo, o la primera text/plain (o text/html sin etiquetas). */
+    private function bodyOf(array $parts): ?string
+    {
+        $flat = [];
+        $walk = function (array $parts) use (&$walk, &$flat) {
+            foreach ($parts as $part) {
+                $flat[] = $part;
+                $walk($part['mp'] ?? []);
+            }
+        };
+        $walk($parts);
+
+        $pick = collect($flat)->first(fn ($p) => ! empty($p['body']) && isset($p['content']))
+            ?? collect($flat)->first(fn ($p) => ($p['ct'] ?? '') === 'text/plain' && isset($p['content']))
+            ?? collect($flat)->first(fn ($p) => ($p['ct'] ?? '') === 'text/html' && isset($p['content']));
+        if (! $pick) {
+            return null;
+        }
+        $content = $this->text($pick['content']) ?? '';
+        if (($pick['ct'] ?? '') === 'text/html') {
+            $content = html_entity_decode(strip_tags(preg_replace('#<(style|script)\b.*?</\1>#is', '', $content)), ENT_QUOTES | ENT_HTML5);
+        }
+
+        return trim(preg_replace("/[ \t]+/", ' ', preg_replace("/\n{3,}/", "\n\n", $content)));
     }
 
     /**

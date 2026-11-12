@@ -94,7 +94,11 @@ class CalendarAccountController extends Controller
             'color' => ['sometimes', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'calendar_ref' => ['sometimes', 'string', 'max:500'],
             'is_default' => ['sometimes', 'boolean'],
+            'mail_enabled' => ['sometimes', 'boolean'],
         ]);
+        if (isset($data['mail_enabled']) && ! $account->supportsMail()) {
+            unset($data['mail_enabled']);
+        }
 
         if (! empty($data['is_default'])) {
             $request->user()->calendarAccounts()->update(['is_default' => false]);
@@ -130,6 +134,7 @@ class CalendarAccountController extends Controller
         } catch (Throwable $e) {
             return back()->withErrors(['account' => $e->getMessage()]);
         }
+        $account->mail_error = null;
         $account->save();
         $this->sync->sync($account);
 

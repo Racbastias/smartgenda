@@ -1,128 +1,118 @@
-@extends('layouts.app')
-@section('title', 'Agenda')
-@push('head')
-{{-- FullCalendar 6.1.15 (MIT), incluido en el repo para no depender de un CDN --}}
-<script src="{{ asset('vendor/fullcalendar/index.global.min.js') }}"></script>
-<script src="{{ asset('vendor/fullcalendar/es.global.min.js') }}"></script>
-<style>
-    #calendar { --fc-border-color: var(--line); --fc-page-bg-color: var(--card); --fc-today-bg-color: rgba(37,99,235,.08); }
-    .fc .sg-conflict { outline:2px solid var(--danger); outline-offset:-2px; }
-    .fc .sg-conflict .fc-event-title::before { content:"⚠ "; }
-    .legend { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:12px; }
-    dialog { border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--text); width:min(440px, 92vw); }
-    dialog::backdrop { background:rgba(0,0,0,.4); }
-</style>
-@endpush
-@section('content')
-@if ($accounts->isEmpty())
-    <div class="card">
-        <h1>Bienvenido</h1>
-        <p>Conecta tus agendas para ver todo en un solo lugar.</p>
-        <a class="btn" href="{{ route('accounts.index') }}">Conectar agendas</a>
-    </div>
-@else
-    <div class="row" style="justify-content:space-between">
-        <div class="legend">
-            @foreach ($accounts as $account)
-                <span><span class="dot" style="background:{{ $account->color }}"></span> {{ $account->name }}</span>
-            @endforeach
-            <span class="muted">⚠ = choque de horario entre agendas</span>
+@php($kinds = ['zimbra' => 'Zimbra', 'google' => 'Gmail', 'caldav' => 'iCloud'])
+<x-app-layout title="Agenda">
+    <x-slot:head>
+        {{-- FullCalendar 6.1.15 (MIT), incluido en el repo para no depender de un CDN --}}
+        <script src="{{ asset('vendor/fullcalendar/index.global.min.js') }}"></script>
+        <script src="{{ asset('vendor/fullcalendar/es.global.min.js') }}"></script>
+    </x-slot:head>
+
+    @if ($accounts->isEmpty())
+        <div class="card card-pad stack" style="max-width:520px">
+            <h1>Bienvenido</h1>
+            <p class="muted">Conecta tus agendas para ver todo en un solo lugar.</p>
+            <p><a class="btn btn-primary" href="{{ route('accounts.index') }}">Conectar agendas</a></p>
         </div>
-        <button onclick="openNew()">+ Nuevo evento</button>
-    </div>
-    <div class="card" style="padding:12px"><div id="calendar"></div></div>
-
-    <dialog id="new-event">
-        <form id="new-event-form">
-            <h2>Nuevo evento</h2>
-            <label for="e-account">Guardar en</label>
-            <select id="e-account" name="calendar_account_id">
-                @foreach ($accounts as $account)
-                    <option value="{{ $account->id }}" @selected($account->is_default)>{{ $account->name }}</option>
-                @endforeach
-            </select>
-            <label for="e-title">Título</label>
-            <input id="e-title" name="title" required>
-            <label class="row"><input type="checkbox" id="e-allday" name="all_day"> Todo el día</label>
-            <div class="row" style="flex-wrap:nowrap">
-                <div style="flex:1"><label for="e-start">Inicio</label><input id="e-start" name="start" type="datetime-local" required></div>
-                <div style="flex:1"><label for="e-end">Fin</label><input id="e-end" name="end" type="datetime-local" required></div>
+    @else
+        <div x-data="agendaPage(@js($accounts->pluck('id')))" x-on:sg:event-saved.window="calendar.refetchEvents()">
+            <div class="page-head">
+                <div>
+                    <h1 x-text="title">Agenda</h1>
+                    <p class="sub">Choques entre agendas marcados con ⚠</p>
+                </div>
+                <div class="row">
+                    <div class="row hide-mobile">
+                        <button class="btn btn-sm" type="button" x-on:click="calendar.prev()" aria-label="Anterior">‹</button>
+                        <button class="btn btn-sm" type="button" x-on:click="calendar.today()">Hoy</button>
+                        <button class="btn btn-sm" type="button" x-on:click="calendar.next()" aria-label="Siguiente">›</button>
+                        <select class="input" style="width:auto;min-height:30px;padding:4px 8px" x-on:change="calendar.changeView($event.target.value)" aria-label="Vista">
+                            <option value="timeGridWeek">Semana</option>
+                            <option value="timeGridDay">Día</option>
+                            <option value="dayGridMonth">Mes</option>
+                            <option value="listWeek">Lista</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary hide-mobile" type="button" onclick="sgNewEvent()"><x-icon name="plus"/> Nuevo evento</button>
+                </div>
             </div>
-            <label for="e-location">Lugar</label>
-            <input id="e-location" name="location">
-            <label for="e-description">Notas</label>
-            <textarea id="e-description" name="description" rows="3"></textarea>
-            <p id="e-error" style="color:var(--danger)" hidden></p>
-            <p class="row" style="justify-content:flex-end">
-                <button type="button" class="secondary" onclick="this.closest('dialog').close()">Cancelar</button>
-                <button id="e-save">Guardar</button>
-            </p>
-        </form>
-    </dialog>
-@endif
-@endsection
-@push('scripts')
-@if ($accounts->isNotEmpty())
-<script>
-    const csrf = document.querySelector('meta[name=csrf-token]').content;
-    const dialog = document.getElementById('new-event');
-    const form = document.getElementById('new-event-form');
-    const pad = n => String(n).padStart(2, '0');
-    const local = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
-    const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
-        locale: 'es',
-        initialView: window.innerWidth < 700 ? 'listWeek' : 'timeGridWeek',
-        headerToolbar: { left: 'prev,next today', center: 'title', right: 'timeGridDay,timeGridWeek,dayGridMonth,listWeek' },
-        nowIndicator: true, firstDay: 1, slotMinTime: '07:00:00', slotMaxTime: '22:00:00', height: 'auto',
-        selectable: true,
-        events: { url: @json(route('agenda.events')) },
-        select: info => openNew(info.start, info.end, info.allDay),
-        eventDidMount: info => {
-            const p = info.event.extendedProps;
-            info.el.title = [info.event.title, p.agenda, p.location, p.conflict ? '⚠ Choca con otra agenda' : null].filter(Boolean).join('\n');
-        },
-    });
-    calendar.render();
+            <div class="filters" style="margin-bottom:12px" role="group" aria-label="Agendas visibles">
+                @foreach ($accounts as $account)
+                    <button type="button" class="filter" style="--cal-color: {{ $account->color }}"
+                            :aria-pressed="!hidden.includes({{ $account->id }})" x-on:click="toggle({{ $account->id }})">
+                        <span class="dot"></span>{{ $account->name }} <span class="kind">{{ $kinds[$account->provider] ?? 'CalDAV' }}</span>
+                    </button>
+                @endforeach
+            </div>
 
-    function openNew(start, end, allDay = false) {
-        start ??= new Date(Math.ceil(Date.now() / 1800000) * 1800000);
-        end ??= new Date(start.getTime() + 3600000);
-        form.reset();
-        document.getElementById('e-allday').checked = allDay;
-        form.start.value = local(start);
-        form.end.value = local(end);
-        document.getElementById('e-error').hidden = true;
-        dialog.showModal();
-        form.title.focus();
-    }
+            {{-- Móvil: selector horizontal de días --}}
+            <div class="daystrip" x-ref="strip">
+                <template x-for="d in strip" :key="d.key">
+                    <button type="button" :aria-current="d.key === current ? 'date' : false" x-on:click="calendar.gotoDate(d.date)">
+                        <span x-text="d.dow"></span><b x-text="d.num"></b>
+                    </button>
+                </template>
+            </div>
 
-    form.addEventListener('submit', async e => {
-        e.preventDefault();
-        const save = document.getElementById('e-save');
-        save.disabled = true;
-        const allDay = form.all_day.checked;
-        const toIso = v => allDay ? v.slice(0, 10) : new Date(v).toISOString();
-        const res = await fetch(@json(route('agenda.store')), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
-            body: JSON.stringify({
-                calendar_account_id: form.calendar_account_id.value,
-                title: form.title.value,
-                start: toIso(form.start.value),
-                end: allDay ? (() => { const d = new Date(form.end.value.slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); })() : toIso(form.end.value),
-                all_day: allDay,
-                location: form.location.value || null,
-                description: form.description.value || null,
-            }),
+            <div class="card" style="padding:8px"><div id="calendar"></div></div>
+        </div>
+    @endif
+
+    <x-slot:scripts>
+    <script>
+        document.addEventListener('alpine:init', () => {
+            let cal = null; // fuera del estado reactivo de Alpine
+            Alpine.data('agendaPage', ids => ({
+                get calendar() { return cal; },
+                title: 'Agenda', current: '', strip: [],
+                hidden: (() => { try { return JSON.parse(localStorage.getItem('sg.hidden') || '[]').filter(id => ids.includes(id)); } catch { return []; } })(),
+                init() {
+                    const mobile = window.matchMedia('(max-width: 767px)').matches;
+                    cal = new FullCalendar.Calendar(document.getElementById('calendar'), {
+                        locale: 'es', firstDay: 1, height: 'auto', nowIndicator: true, selectable: true,
+                        initialView: mobile ? 'timeGridDay' : 'timeGridWeek',
+                        headerToolbar: false,
+                        slotMinTime: '07:00:00', slotMaxTime: '22:00:00', scrollTime: '08:00:00',
+                        allDayText: 'Todo el día', dayHeaderFormat: { weekday: 'short', day: 'numeric' },
+                        eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+                        slotLabelFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+                        events: (info, ok, fail) => {
+                            const url = new URL(@js(route('agenda.events')));
+                            url.searchParams.set('start', info.startStr); url.searchParams.set('end', info.endStr);
+                            fetch(url, { headers: { Accept: 'application/json' } }).then(r => r.json())
+                                .then(list => ok(list.map(e => ({ ...e, display: this.hidden.includes(e.extendedProps.accountId) ? 'none' : 'auto' }))))
+                                .catch(fail);
+                        },
+                        select: info => sgNewEvent({ start: info.start, end: info.end, allDay: info.allDay }),
+                        dateClick: info => mobile && sgNewEvent({ start: info.date, allDay: info.allDay }),
+                        eventDidMount: info => {
+                            const p = info.event.extendedProps;
+                            info.el.style.setProperty('--cal-color', p.color);
+                            info.el.title = [info.event.title, p.agenda, p.location, p.conflict ? '⚠ Choca con otra agenda' : null].filter(Boolean).join('\n');
+                        },
+                        datesSet: info => {
+                            this.title = info.view.title.charAt(0).toUpperCase() + info.view.title.slice(1);
+                            this.current = sg.ymd(info.view.currentStart);
+                            this.buildStrip(info.view.currentStart);
+                        },
+                    });
+                    this.calendar.render();
+                },
+                buildStrip(center) {
+                    const days = [];
+                    for (let i = -3; i <= 10; i++) {
+                        const d = new Date(center); d.setDate(d.getDate() + i);
+                        days.push({ key: sg.ymd(d), date: d, num: d.getDate(), dow: d.toLocaleDateString('es', { weekday: 'short' }).replace('.', '') });
+                    }
+                    this.strip = days;
+                    this.$nextTick(() => this.$refs.strip?.querySelector('[aria-current=date]')?.scrollIntoView({ inline: 'center', block: 'nearest' }));
+                },
+                toggle(id) {
+                    this.hidden = this.hidden.includes(id) ? this.hidden.filter(x => x !== id) : [...this.hidden, id];
+                    try { localStorage.setItem('sg.hidden', JSON.stringify(this.hidden)); } catch {}
+                    this.calendar.refetchEvents();
+                },
+            }));
         });
-        save.disabled = false;
-        if (res.ok) { dialog.close(); calendar.refetchEvents(); return; }
-        const body = await res.json().catch(() => ({}));
-        const err = document.getElementById('e-error');
-        err.textContent = body.message || 'No se pudo guardar el evento.';
-        err.hidden = false;
-    });
-</script>
-@endif
-@endpush
+    </script>
+    </x-slot:scripts>
+</x-app-layout>
