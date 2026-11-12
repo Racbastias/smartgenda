@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Calendar\Providers\ZimbraProvider;
+use App\Calendar\ProviderRegistry;
 use App\Inbox\InboxDigest;
 use App\Models\BlockedSender;
 use App\Models\CalendarAccount;
@@ -38,12 +38,12 @@ class InboxController extends Controller
     }
 
     /** Mueve el correo a la Papelera del buzón y lo saca de Pendientes. */
-    public function trash(Request $request, EmailItem $item, ZimbraProvider $zimbra): JsonResponse
+    public function trash(Request $request, EmailItem $item, ProviderRegistry $providers): JsonResponse
     {
-        $account = $this->ownZimbraItem($request, $item);
+        $account = $this->ownMailItem($request, $item);
 
         try {
-            $zimbra->trashMessage($account, $item->remote_id);
+            $providers->mail($account)->trashMessage($account, $item->remote_id);
         } catch (Throwable $e) {
             report($e);
 
@@ -55,14 +55,14 @@ class InboxController extends Controller
     }
 
     /** Responde al remitente desde la cuenta de correo y marca el pendiente como hecho. */
-    public function reply(Request $request, EmailItem $item, ZimbraProvider $zimbra): JsonResponse
+    public function reply(Request $request, EmailItem $item, ProviderRegistry $providers): JsonResponse
     {
-        $account = $this->ownZimbraItem($request, $item);
+        $account = $this->ownMailItem($request, $item);
         abort_unless(filled($item->from_email), 422, 'El correo no tiene remitente.');
         $data = $request->validate(['body' => ['required', 'string', 'max:20000']]);
 
         try {
-            $zimbra->reply($account, $item->remote_id, $item->from_email, $item->from_name, (string) $item->subject, $data['body']);
+            $providers->mail($account)->reply($account, $item->remote_id, $item->from_email, $item->from_name, (string) $item->subject, $data['body']);
         } catch (Throwable $e) {
             report($e);
 
@@ -73,11 +73,11 @@ class InboxController extends Controller
         return response()->json(['message' => "Respuesta enviada a {$item->from_email}."]);
     }
 
-    private function ownZimbraItem(Request $request, EmailItem $item): CalendarAccount
+    private function ownMailItem(Request $request, EmailItem $item): CalendarAccount
     {
         $account = $item->account;
         abort_unless($account?->user_id === $request->user()->id, 404);
-        abort_unless($account->provider === CalendarAccount::ZIMBRA, 422, 'Por ahora solo se puede desde Zimbra.');
+        abort_unless($account->supportsMail(), 422, 'Esta cuenta no tiene correo.');
 
         return $account;
     }

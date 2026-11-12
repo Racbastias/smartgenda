@@ -66,7 +66,7 @@
                             </div>
                         </div>
                         <div class="task-actions">
-                            @if ($task->account->provider === 'zimbra' && $task->from_email)
+                            @if ($task->account->supportsMail() && $task->from_email)
                                 <button type="button" class="btn btn-sm" x-on:click="openReply(@js(route('inbox.reply', $task)), @js($task->from_name ? $task->from_name.' <'.$task->from_email.'>' : $task->from_email), @js(preg_match('/^\s*(re|rv|fw|fwd)\s*:/i', (string) $task->subject) ? $task->subject : 'RE: '.$task->subject))">Responder</button>
                             @endif
                             <button type="button" class="btn btn-sm" x-on:click="schedule(@js($task->headline()), @js($task->due_on?->toDateString()), @js('Del correo de '.$task->sender().': '.$task->subject))">Agendar</button>
@@ -77,7 +77,7 @@
                                 <button type="button" class="btn btn-sm btn-ghost" x-on:click="open = !open" :aria-expanded="open" aria-label="Más opciones" title="Descartar u ocultar">⋯</button>
                                 <div class="menu-list" x-show="open" x-cloak x-transition.opacity>
                                     <button type="button" x-on:click="dismiss({{ $task->id }}, @js(route('inbox.update', $task)))">Descartar este pendiente</button>
-                                    @if ($task->account->provider === 'zimbra')
+                                    @if ($task->account->supportsMail())
                                         <button type="button" x-on:click="trash({{ $task->id }}, @js(route('inbox.trash', $task)))" style="color:var(--danger)">Eliminar correo (va a la Papelera)</button>
                                     @endif
                                     @if ($task->from_email)
@@ -152,7 +152,7 @@
                     <p class="small"><span class="muted">Para:</span> <span x-text="reply.to" style="overflow-wrap:anywhere"></span></p>
                     <p class="small"><span class="muted">Asunto:</span> <span x-text="reply.subject" style="overflow-wrap:anywhere"></span></p>
                     <textarea class="input" rows="8" x-ref="replyBody" x-model="reply.body" placeholder="Escribe tu respuesta…" required maxlength="20000"></textarea>
-                    <p class="hint">Se envía desde tu cuenta de Zimbra y queda en Enviados.</p>
+                    <p class="hint">Se envía desde tu cuenta de correo y queda en Enviados.</p>
                     <p class="error-text" x-show="reply.error" x-text="reply.error" role="alert"></p>
                 </div>
                 <div class="modal-foot">
@@ -202,7 +202,7 @@
                     location.reload();
                 },
                 async trash(id, url) {
-                    if (!confirm('¿Eliminar este correo? Se mueve a la Papelera de tu Zimbra y se puede recuperar desde ahí.')) return;
+                    if (!confirm('¿Eliminar este correo? Se mueve a la Papelera de tu correo y se puede recuperar desde ahí.')) return;
                     this.gone[id] = true;
                     const res = await sgFetch(url, 'POST');
                     if (!res.ok) { this.gone[id] = false; alert(res.body.message || 'No se pudo eliminar el correo.'); }

@@ -5,6 +5,7 @@ namespace App\Calendar;
 use App\Calendar\Providers\CalDavProvider;
 use App\Calendar\Providers\GoogleProvider;
 use App\Calendar\Providers\ZimbraProvider;
+use App\Inbox\MailProvider;
 use App\Models\CalendarAccount;
 use InvalidArgumentException;
 
@@ -17,6 +18,15 @@ class ProviderRegistry
             CalendarAccount::GOOGLE => app(GoogleProvider::class),
             CalendarAccount::ZIMBRA => app(ZimbraProvider::class),
             default => throw new InvalidArgumentException("Proveedor desconocido: {$account->provider}"),
+        };
+    }
+
+    public function mail(CalendarAccount $account): MailProvider
+    {
+        return match ($account->provider) {
+            CalendarAccount::GOOGLE => app(GoogleProvider::class),
+            CalendarAccount::ZIMBRA => app(ZimbraProvider::class),
+            default => throw new InvalidArgumentException('Esta cuenta no tiene correo.'),
         };
     }
 }

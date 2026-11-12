@@ -26,14 +26,14 @@ Smartgenda inicia sesión en la API de Zimbra con la contraseña y el código de
 
 ## Resumen de correos
 
-En **Mis agendas**, una cuenta de Zimbra tiene el botón **Resumir correo**. Al activarlo, cada 2 minutos Smartgenda lee los correos nuevos de la bandeja de entrada (la primera vez, los de los últimos 3 días) y anota en **Pendientes** lo que piden. Cada acción se marca como hecha, se descarta o se agenda (abre el formulario de evento con el título y la fecha). El cuerpo del correo no se guarda.
+En **Integraciones**, las cuentas de Zimbra y de Google (Gmail) tienen el botón **Resumir correo**. Al activarlo, cada 2 minutos Smartgenda lee los correos nuevos de la bandeja de entrada (la primera vez, los de los últimos 3 días) y anota en **Pendientes** lo que piden. Cada acción se marca como hecha, se descarta o se agenda (abre el formulario de evento con el título y la fecha). El cuerpo del correo no se guarda.
 
 Hay dos modos:
 
 - **Sin costo (por defecto)**: reglas simples (`RuleSummarizer`). Ignora boletines y publicidad (encabezados `List-Unsubscribe`/`Precedence: bulk` y textos como "ver este correo en tu navegador" o "darse de baja"). Toma los correos dirigidos a ti (no en copia) que no has respondido, detecta pedidos y preguntas ("¿podrías…?", "favor enviar", "necesito", "urgente") y fechas ("el viernes", "15/11", "mañana"). Muestra el inicio del correo como resumen y deja como prioridad baja los boletines y las notificaciones automáticas.
 - **Con IA**: si existe `ANTHROPIC_API_KEY` (console.anthropic.com → API Keys, como secreto de GitHub; el deploy la escribe en el `.env`), los correos se envían a la API de Claude, que escribe el resumen y detecta compromisos con más precisión. Es pago por uso. El modelo se cambia con `ANTHROPIC_MODEL` (por defecto `claude-opus-5-5`). Si el modelo declina un correo por política, la API reintenta sola con el modelo alternativo por defecto.
 
-Desde **Hoy** se puede **responder** un correo de Zimbra (se envía desde la cuenta y queda en Enviados) o **eliminarlo** (va a la Papelera de Zimbra). Los eventos se eliminan desde Hoy o Agenda haciendo clic en ellos: se borran también del calendario original (en Zimbra van a la Papelera; las repeticiones de eventos periódicos se eliminan desde el calendario de origen). Cada pendiente se puede descartar, o se puede ocultar para siempre todo lo que llegue de ese remitente o de su dominio. La lista de remitentes ocultos está en **Integraciones**, donde se puede deshacer. El correo no se borra del buzón.
+Desde **Hoy** se puede **responder** un correo de Zimbra o Gmail (se envía desde la cuenta y queda en Enviados) o **eliminarlo** (va a la Papelera). En Gmail, las pestañas Promociones y Social cuentan como publicidad. Los eventos se eliminan desde Hoy o Agenda haciendo clic en ellos: se borran también del calendario original (en Zimbra van a la Papelera; las repeticiones de eventos periódicos se eliminan desde el calendario de origen). Cada pendiente se puede descartar, o se puede ocultar para siempre todo lo que llegue de ese remitente o de su dominio. La lista de remitentes ocultos está en **Integraciones**, donde se puede deshacer. El correo no se borra del buzón.
 
 ## Desarrollo local
 
@@ -72,7 +72,7 @@ Desde ahí, cada push a `main` con tests en verde se publica solo. El `.env` y l
 
 ### Credenciales de Google (para Aminfo)
 
-1. console.cloud.google.com → proyecto nuevo → habilitar **Google Calendar API** y **Gmail API**.
+1. console.cloud.google.com → proyecto nuevo → habilitar **Google Calendar API** y **Gmail API** (la normal, no la "Gmail MCP API").
 2. Pantalla de consentimiento OAuth: tipo **Interno** (solo usuarios de aminfo.cl, sin revisión de Google).
 3. Credenciales → ID de cliente OAuth → Aplicación web. URI de redirección: `https://agenda.midominio.cl/cuentas/google/callback`.
 4. Guardar el ID y el secreto como secretos de GitHub `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET`. El próximo deploy los escribe en el `.env` del servidor (Actions → Deploy a Hostinger → Run workflow para aplicarlos sin esperar un push).

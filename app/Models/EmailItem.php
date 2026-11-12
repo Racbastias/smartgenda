@@ -49,6 +49,9 @@ class EmailItem extends Model
     public function webUrl(): ?string
     {
         $account = $this->account;
+        if ($account?->provider === CalendarAccount::GOOGLE) {
+            return 'https://mail.google.com/mail/u/'.rawurlencode((string) ($account->username ?: '0')).'/#all/'.rawurlencode($this->remote_id);
+        }
         if ($account?->provider !== CalendarAccount::ZIMBRA || ! $account->server_url) {
             return null;
         }
