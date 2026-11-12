@@ -85,6 +85,18 @@
     });
     calendar.render();
 
+    // Desde "Pendientes": /?nuevo=Título&fecha=YYYY-MM-DD&nota=...
+    const params = new URLSearchParams(location.search);
+    if (params.has('nuevo')) {
+        const day = params.get('fecha');
+        const start = day ? new Date(`${day}T09:00`) : undefined;
+        openNew(start, start ? new Date(start.getTime() + 3600000) : undefined);
+        form.title.value = params.get('nuevo');
+        form.description.value = params.get('nota') || '';
+        if (start) calendar.gotoDate(start);
+        history.replaceState(null, '', location.pathname);
+    }
+
     function openNew(start, end, allDay = false) {
         start ??= new Date(Math.ceil(Date.now() / 1800000) * 1800000);
         end ??= new Date(start.getTime() + 3600000);

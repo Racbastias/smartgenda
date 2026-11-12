@@ -19,7 +19,17 @@
                         Aún no sincronizada
                     @endif
                 </div>
-                @if ($account->provider === 'zimbra' && $account->last_error)
+                @if ($account->supportsMail())
+                    <div class="muted">
+                        Resumen de correo: {{ $account->mail_enabled ? 'activado' : 'desactivado' }}
+                        @if ($account->mail_enabled && $account->mail_error)
+                            · <span style="color:var(--danger)">Error: {{ $account->mail_error }}</span>
+                        @elseif ($account->mail_enabled && $account->mail_synced_at)
+                            · revisado {{ $account->mail_synced_at->diffForHumans() }}
+                        @endif
+                    </div>
+                @endif
+                @if ($account->provider === 'zimbra' && ($account->last_error || ($account->mail_enabled && $account->mail_error)))
                     <form method="post" action="{{ route('accounts.reauth', $account) }}" class="row" style="margin-top:8px">
                         @csrf
                         <input name="code" inputmode="numeric" autocomplete="one-time-code" placeholder="Código de 6 dígitos" style="width:170px" required>
@@ -30,6 +40,14 @@
             </div>
             <div class="row">
                 <form method="post" action="{{ route('accounts.sync', $account) }}">@csrf<button class="secondary">Sincronizar</button></form>
+                @if ($account->supportsMail())
+                    <form method="post" action="{{ route('accounts.update', $account) }}"
+                          @unless ($account->mail_enabled) onsubmit="return confirm('Smartgenda leerá los correos nuevos de la bandeja de entrada y los enviará a la IA de Claude (Anthropic) para resumirlos. Solo se guarda el resumen. ¿Activar?')" @endunless>
+                        @csrf @method('patch')
+                        <input type="hidden" name="mail_enabled" value="{{ $account->mail_enabled ? 0 : 1 }}">
+                        <button class="secondary">{{ $account->mail_enabled ? 'Dejar de resumir correo' : 'Resumir correo' }}</button>
+                    </form>
+                @endif
                 <a class="btn" style="background:transparent;color:var(--text);border:1px solid var(--line)" href="{{ route('accounts.choose', $account) }}">Cambiar calendario</a>
                 @unless ($account->is_default)
                     <form method="post" action="{{ route('accounts.update', $account) }}">@csrf @method('patch')<input type="hidden" name="is_default" value="1"><button class="secondary">Usar por defecto</button></form>

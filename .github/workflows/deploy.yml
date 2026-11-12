@@ -4,6 +4,7 @@ name: Deploy a Hostinger
 # Requiere estos secretos en GitHub (Settings → Secrets and variables → Actions):
 #   HOSTINGER_HOST, HOSTINGER_PORT (normalmente 65002), HOSTINGER_USER,
 #   HOSTINGER_SSH_KEY (clave privada), HOSTINGER_PATH (ej. domains/agenda.midominio.cl/smartgenda)
+# Opcionales: APP_URL, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, ANTHROPIC_API_KEY (se escriben en el .env del servidor)
 # Mientras no estén configurados, el deploy se salta sin fallar.
 
 on:
@@ -52,6 +53,9 @@ jobs:
         env:
           SSH_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
           APP_URL_SECRET: ${{ secrets.APP_URL }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           mkdir -p ~/.ssh && echo "$SSH_KEY" > ~/.ssh/id && chmod 600 ~/.ssh/id
           SSH="ssh -i ~/.ssh/id -p ${PORT:-65002} -o StrictHostKeyChecking=accept-new"
@@ -63,6 +67,11 @@ jobs:
             --exclude .git --exclude .github --exclude tests --exclude node_modules \
             --exclude .env --exclude /storage/ --exclude /database/database.sqlite \
             ./ "$USER@$HOST:$TARGET/"
+
+          # Las credenciales viajan por stdin (no en la línea de comandos del servidor)
+          { printf 'GOOGLE_CLIENT_ID=%s\nGOOGLE_CLIENT_SECRET=%s\nANTHROPIC_API_KEY=%s\n' \
+              "$GOOGLE_CLIENT_ID" "$GOOGLE_CLIENT_SECRET" "$ANTHROPIC_API_KEY"; } \
+            | $SSH "$USER@$HOST" "umask 077 && cat > $TARGET/.deploy-secrets"
 
           $SSH "$USER@$HOST" "TARGET='$TARGET' APP_URL='$APP_URL' bash -s" <<'REMOTE'
           set -euo pipefail
@@ -77,6 +86,16 @@ jobs:
             php artisan key:generate --force
           fi
           [ -f database/database.sqlite ] || touch database/database.sqlite
+
+          # Credenciales (Google, Anthropic) desde los secretos de GitHub (solo si están definidas)
+          while IFS='=' read -r key value; do
+            [ -n "$value" ] || continue
+            if grep -q "^$key=" .env; then
+              grep -v "^$key=" .env > .env.tmp && mv .env.tmp .env
+            fi
+            printf '%s=%s\n' "$key" "$value" >> .env
+          done < .deploy-secrets
+          rm -f .deploy-secrets
 
           php artisan migrate --force
           php artisan config:cache && php artisan route:cache && php artisan view:cache

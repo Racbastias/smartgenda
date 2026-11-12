@@ -40,6 +40,7 @@
     <strong>Smartgenda</strong>
     <nav>
         <a href="{{ route('agenda') }}" @class(['active' => request()->routeIs('agenda')])>Agenda</a>
+        <a href="{{ route('inbox.index') }}" @class(['active' => request()->routeIs('inbox.*')])>Pendientes</a>
         <a href="{{ route('accounts.index') }}" @class(['active' => request()->routeIs('accounts.*')])>Mis agendas</a>
         @if (auth()->user()->is_admin)
             <a href="{{ route('users.index') }}" @class(['active' => request()->routeIs('users.*')])>Usuarios</a>

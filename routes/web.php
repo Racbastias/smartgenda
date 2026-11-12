@@ -3,6 +3,7 @@
 use App\Http\Controllers\AgendaController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CalendarAccountController;
+use App\Http\Controllers\InboxController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\EnsureAdmin;
 use Illuminate\Support\Facades\Route;
@@ -20,6 +21,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/', [AgendaController::class, 'index'])->name('agenda');
     Route::get('/agenda/eventos', [AgendaController::class, 'events'])->name('agenda.events');
     Route::post('/agenda/eventos', [AgendaController::class, 'store'])->name('agenda.store');
+
+    Route::get('/pendientes', [InboxController::class, 'index'])->name('inbox.index');
+    Route::post('/pendientes/revisar', [InboxController::class, 'refresh'])->name('inbox.refresh')->middleware('throttle:4,1');
+    Route::patch('/pendientes/{item}', [InboxController::class, 'update'])->name('inbox.update');
 
     Route::get('/cuentas', [CalendarAccountController::class, 'index'])->name('accounts.index');
     Route::post('/cuentas', [CalendarAccountController::class, 'store'])->name('accounts.store');

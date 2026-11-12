@@ -38,4 +38,10 @@ class User extends Authenticatable
     {
         return $this->hasManyThrough(Event::class, CalendarAccount::class);
     }
+
+    /** @return HasManyThrough<EmailItem, CalendarAccount, $this> */
+    public function emailItems(): HasManyThrough
+    {
+        return $this->hasManyThrough(EmailItem::class, CalendarAccount::class);
+    }
 }
