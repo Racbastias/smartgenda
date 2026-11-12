@@ -64,7 +64,7 @@ Desde ahí, cada push a `main` con tests en verde se publica solo. El `.env` y l
 1. console.cloud.google.com → proyecto nuevo → habilitar **Google Calendar API** y **Gmail API**.
 2. Pantalla de consentimiento OAuth: tipo **Interno** (solo usuarios de aminfo.cl, sin revisión de Google).
 3. Credenciales → ID de cliente OAuth → Aplicación web. URI de redirección: `https://agenda.midominio.cl/cuentas/google/callback`.
-4. Copiar el ID y el secreto a `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` en el `.env` del servidor.
+4. Guardar el ID y el secreto como secretos de GitHub `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET`. El próximo deploy los escribe en el `.env` del servidor (Actions → Deploy a Hostinger → Run workflow para aplicarlos sin esperar un push).
 
 Si alguien fuera de aminfo.cl (por ejemplo Karin con otra cuenta de Google) necesita conectar Google, la pantalla de consentimiento debe ser **Externa** y esa persona se agrega como usuario de prueba.
 
