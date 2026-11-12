@@ -19,6 +19,8 @@ class CalendarAccount extends Model
 
     public const GOOGLE = 'google';
 
+    public const ZIMBRA = 'zimbra';
+
     protected function casts(): array
     {
         return [

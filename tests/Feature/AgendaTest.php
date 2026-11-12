@@ -111,17 +111,17 @@ class AgendaTest extends TestCase
         $this->assertNotNull($account->fresh()->last_synced_at);
     }
 
-    public function test_connecting_zimbra_builds_the_dav_url(): void
+    public function test_connecting_icloud_uses_the_icloud_server(): void
     {
         $user = User::factory()->create();
 
         $this->actingAs($user)->post('/cuentas', [
-            'name' => 'Lilienfeld', 'color' => '#16a34a', 'kind' => 'zimbra',
-            'server' => 'correo.lilienfeld.cl', 'username' => 'ruben@lilienfeld.cl', 'password' => 'x',
+            'name' => 'Personal', 'color' => '#f59e0b', 'kind' => 'icloud',
+            'username' => 'ruben@icloud.com', 'password' => 'x',
         ])->assertRedirect('/cuentas');
 
         $account = $user->calendarAccounts()->sole();
-        $this->assertSame('https://correo.lilienfeld.cl/dav/ruben@lilienfeld.cl/', $account->server_url);
+        $this->assertSame('https://caldav.icloud.com/', $account->server_url);
         $this->assertSame('cal-1', $account->calendar_ref);
         $this->assertTrue($account->is_default);
         $this->assertNotSame('x', $account->getRawOriginal('secret')); // guardada cifrada

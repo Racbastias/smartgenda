@@ -9,7 +9,7 @@
             <div>
                 <span class="dot" style="background:{{ $account->color }}"></span>
                 <strong>{{ $account->name }}</strong>
-                <span class="muted">· {{ $account->provider === 'google' ? 'Google' : 'CalDAV' }}{{ $account->is_default ? ' · predeterminada' : '' }}</span>
+                <span class="muted">· {{ ['google' => 'Google', 'zimbra' => 'Zimbra', 'caldav' => 'CalDAV'][$account->provider] ?? $account->provider }}{{ $account->is_default ? ' · predeterminada' : '' }}</span>
                 <div class="muted">
                     @if ($account->last_error)
                         <span style="color:var(--danger)">Error: {{ $account->last_error }}</span>
@@ -19,6 +19,14 @@
                         Aún no sincronizada
                     @endif
                 </div>
+                @if ($account->provider === 'zimbra' && $account->last_error)
+                    <form method="post" action="{{ route('accounts.reauth', $account) }}" class="row" style="margin-top:8px">
+                        @csrf
+                        <input name="code" inputmode="numeric" autocomplete="one-time-code" placeholder="Código de 6 dígitos" style="width:170px" required>
+                        <input name="password" type="password" placeholder="Contraseña (solo si cambió)" style="width:220px">
+                        <button>Reconectar</button>
+                    </form>
+                @endif
             </div>
             <div class="row">
                 <form method="post" action="{{ route('accounts.sync', $account) }}">@csrf<button class="secondary">Sincronizar</button></form>
@@ -39,7 +47,7 @@
         @csrf
         <h2>Zimbra, iCloud u otra (CalDAV)</h2>
         <label for="kind">Tipo</label>
-        <select id="kind" name="kind" onchange="document.getElementById('server-row').hidden = this.value === 'icloud'">
+        <select id="kind" name="kind" onchange="document.getElementById('server-row').hidden = this.value === 'icloud'; document.getElementById('code-row').hidden = this.value !== 'zimbra'">
             <option value="zimbra" @selected(old('kind') === 'zimbra')>Zimbra (ej. Lilienfeld)</option>
             <option value="icloud" @selected(old('kind') === 'icloud')>iCloud</option>
             <option value="caldav" @selected(old('kind') === 'caldav')>Otro servidor CalDAV</option>
@@ -58,6 +66,11 @@
         <label for="password">Contraseña</label>
         <input id="password" name="password" type="password" required>
         <div class="muted">En iCloud usa una contraseña de aplicación (appleid.apple.com → Inicio de sesión y seguridad).</div>
+        <div id="code-row" @if (old('kind', 'zimbra') !== 'zimbra') hidden @endif>
+            <label for="code">Código de verificación</label>
+            <input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">
+            <div class="muted">Si tu Zimbra usa doble factor, el código de 6 dígitos de tu app autenticadora. Smartgenda queda como dispositivo de confianza y no lo vuelve a pedir hasta que Zimbra lo exija.</div>
+        </div>
         <p><button>Conectar</button></p>
     </form>
 
