@@ -193,10 +193,20 @@ class CalendarAccountController extends Controller
             'provider' => CalendarAccount::GOOGLE,
             'secret' => json_encode($token),
             'calendar_ref' => 'primary',
+            'username' => $this->emailFromIdToken($token['id_token'] ?? null),
         ]);
         $account->user()->associate($request->user());
 
         return $this->pickCalendar($account);
+    }
+
+    /** Correo de la cuenta según el id_token que Google acaba de entregar por TLS (no hace falta verificar la firma). */
+    private function emailFromIdToken(?string $idToken): ?string
+    {
+        $payload = explode('.', (string) $idToken)[1] ?? '';
+        $claims = json_decode(base64_decode(strtr($payload, '-_', '+/')) ?: '', true);
+
+        return is_array($claims) ? ($claims['email'] ?? null) : null;
     }
 
     /** Guarda la cuenta y, si hay más de un calendario, pide elegir. */

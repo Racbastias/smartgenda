@@ -6,6 +6,8 @@ use App\Calendar\CalendarProvider;
 use App\Calendar\CalendarSyncException;
 use App\Calendar\EventData;
 use App\Calendar\RemoteCalendar;
+use App\Inbox\MailMessage;
+use App\Inbox\MailProvider;
 use App\Models\CalendarAccount;
 use Carbon\CarbonImmutable;
 use Google\Client;
@@ -13,20 +15,30 @@ use Google\Service\Calendar;
 use Google\Service\Calendar\Event as GoogleEvent;
 use Google\Service\Calendar\EventDateTime;
 use Google\Service\Exception;
+use Google\Service\Gmail;
+use Google\Service\Gmail\Message as GmailMessage;
+use Google\Service\Gmail\MessagePart;
+use GuzzleHttp\ClientInterface;
 
 /** Google Calendar (Aminfo, Google Workspace). La conexión se hace con OAuth. */
-class GoogleProvider implements CalendarProvider
+class GoogleProvider implements CalendarProvider, MailProvider
 {
     public const SCOPES = [
         Calendar::CALENDAR,
-        'https://www.googleapis.com/auth/gmail.readonly', // para los resúmenes de correo (etapa 2)
+        'https://www.googleapis.com/auth/gmail.modify', // leer, responder y mandar a la papelera (no borra definitivo)
         'openid',
         'email',
     ];
 
+    /** Solo para pruebas: cliente HTTP simulado. */
+    public static ?ClientInterface $httpClient = null;
+
     public static function oauthClient(): Client
     {
         $client = new Client;
+        if (self::$httpClient) {
+            $client->setHttpClient(self::$httpClient);
+        }
         $client->setClientId(config('services.google.client_id'));
         $client->setClientSecret(config('services.google.client_secret'));
         $client->setRedirectUri(config('services.google.redirect'));
@@ -122,7 +134,153 @@ class GoogleProvider implements CalendarProvider
             : ['dateTime' => $value->utc()->toRfc3339String()]);
     }
 
+    // ---------- Gmail ----------
+
+    public function fetchMessages(CalendarAccount $account, CarbonImmutable $since, int $limit = 50): array
+    {
+        $gmail = new Gmail($this->client($account));
+        $list = $gmail->users_messages->listUsersMessages('me', [
+            'q' => 'in:inbox after:'.$since->getTimestamp(),
+            'maxResults' => $limit,
+        ]);
+        $me = mb_strtolower((string) $account->username);
+
+        $messages = [];
+        foreach ($list->getMessages() ?? [] as $ref) {
+            $m = $gmail->users_messages->get('me', $ref->getId(), ['format' => 'full']);
+            $received = CarbonImmutable::createFromTimestampMs((int) $m->getInternalDate(), 'UTC');
+            if ($received->lessThan($since)) {
+                continue;
+            }
+            $headers = $this->headers($m->getPayload());
+            [$fromName, $fromEmail] = $this->address($headers['from'] ?? '');
+            $to = collect(preg_split('/,(?=(?:[^"]*"[^"]*")*[^"]*$)/', $headers['to'] ?? ''))
+                ->map(fn ($a) => mb_strtolower($this->address($a)[1] ?? ''));
+
+            $messages[] = new MailMessage(
+                remoteId: $m->getId(),
+                conversationId: $m->getThreadId(),
+                fromName: $fromName,
+                fromEmail: $fromEmail,
+                subject: $headers['subject'] ?? '',
+                receivedAt: $received,
+                body: $this->bodyOf($m->getPayload()) ?? html_entity_decode((string) $m->getSnippet(), ENT_QUOTES | ENT_HTML5),
+                replied: $this->threadHasReplyAfter($gmail, $m),
+                directlyAddressed: $me === '' || $to->filter()->isEmpty() || $to->contains($me),
+                bulk: filled($headers['list-unsubscribe'] ?? null) || filled($headers['list-id'] ?? null)
+                    || in_array(mb_strtolower(trim($headers['precedence'] ?? '')), ['bulk', 'list', 'junk'], true)
+                    || in_array('CATEGORY_PROMOTIONS', $m->getLabelIds() ?? [], true)
+                    || in_array('CATEGORY_SOCIAL', $m->getLabelIds() ?? [], true),
+            );
+        }
+        usort($messages, fn ($a, $b) => $b->receivedAt <=> $a->receivedAt);
+
+        return $messages;
+    }
+
+    public function trashMessage(CalendarAccount $account, string $messageId): void
+    {
+        (new Gmail($this->client($account)))->users_messages->trash('me', $messageId);
+    }
+
+    public function reply(CalendarAccount $account, string $messageId, string $toEmail, ?string $toName, string $subject, string $body): void
+    {
+        $gmail = new Gmail($this->client($account));
+        $original = $gmail->users_messages->get('me', $messageId, ['format' => 'metadata', 'metadataHeaders' => ['Message-ID', 'References']]);
+        $headers = $this->headers($original->getPayload());
+        $msgId = $headers['message-id'] ?? null;
+
+        $subject = preg_match('/^\s*(re|rv|fw|fwd)\s*:/i', $subject) ? $subject : 'RE: '.$subject;
+        $encode = fn (string $v) => preg_match('/[^\x20-\x7E]/', $v) ? '=?UTF-8?B?'.base64_encode($v).'?=' : $v;
+        $to = $toName ? $encode(str_replace('"', '', $toName)).' <'.$toEmail.'>' : $toEmail;
+
+        $mime = implode("\r\n", array_filter([
+            'To: '.$to,
+            'Subject: '.$encode($subject),
+            $msgId ? 'In-Reply-To: '.$msgId : null,
+            $msgId ? 'References: '.trim(($headers['references'] ?? '').' '.$msgId) : null,
+            'MIME-Version: 1.0',
+            'Content-Type: text/plain; charset=UTF-8',
+            'Content-Transfer-Encoding: base64',
+        ]))."\r\n\r\n".chunk_split(base64_encode($body));
+
+        $message = new GmailMessage;
+        $message->setRaw(rtrim(strtr(base64_encode($mime), '+/', '-_'), '='));
+        $message->setThreadId($original->getThreadId());
+        $gmail->users_messages->send('me', $message);
+    }
+
+    /** @return array<string, string> encabezados en minúsculas */
+    private function headers(?MessagePart $part): array
+    {
+        $out = [];
+        foreach ($part?->getHeaders() ?? [] as $h) {
+            $out[mb_strtolower($h->getName())] = (string) $h->getValue();
+        }
+
+        return $out;
+    }
+
+    /** "Juan Pérez <juan@x.cl>" → ["Juan Pérez", "juan@x.cl"] */
+    private function address(string $value): array
+    {
+        $value = trim($value);
+        if (preg_match('/^\s*"?([^"<]*?)"?\s*<([^>]+)>/', $value, $m)) {
+            return [trim($m[1]) ?: null, trim($m[2])];
+        }
+
+        return [null, $value ?: null];
+    }
+
+    private function bodyOf(?MessagePart $part): ?string
+    {
+        $flat = [];
+        $walk = function (?MessagePart $p) use (&$walk, &$flat) {
+            if (! $p) {
+                return;
+            }
+            $flat[] = $p;
+            foreach ($p->getParts() ?? [] as $child) {
+                $walk($child);
+            }
+        };
+        $walk($part);
+
+        $decode = fn (MessagePart $p) => base64_decode(strtr((string) $p->getBody()?->getData(), '-_', '+/')) ?: '';
+        $plain = collect($flat)->first(fn ($p) => $p->getMimeType() === 'text/plain' && $p->getBody()?->getData());
+        if ($plain) {
+            return trim($decode($plain));
+        }
+        $html = collect($flat)->first(fn ($p) => $p->getMimeType() === 'text/html' && $p->getBody()?->getData());
+        if ($html) {
+            $text = preg_replace('#<(style|script)\b.*?</\1>#is', '', $decode($html));
+
+            return trim(preg_replace('/[ \t]+/', ' ', html_entity_decode(strip_tags(preg_replace('#<(br|/p|/div)\b[^>]*>#i', "\n", $text)), ENT_QUOTES | ENT_HTML5)));
+        }
+
+        return null;
+    }
+
+    /** ¿Hay en el hilo un mensaje enviado por la cuenta después de este? (Gmail no marca "respondido"). */
+    private function threadHasReplyAfter(Gmail $gmail, GmailMessage $m): bool
+    {
+        $thread = $gmail->users_threads->get('me', $m->getThreadId(), ['format' => 'minimal']);
+        foreach ($thread->getMessages() ?? [] as $other) {
+            if (in_array('SENT', $other->getLabelIds() ?? [], true) && (int) $other->getInternalDate() > (int) $m->getInternalDate()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function service(CalendarAccount $account): Calendar
+    {
+        return new Calendar($this->client($account));
+    }
+
+    /** Cliente autorizado; renueva el token si venció y lo guarda en la cuenta. */
+    private function client(CalendarAccount $account): Client
     {
         $token = json_decode((string) $account->secret, true);
         if (! is_array($token)) {
@@ -142,6 +300,6 @@ class GoogleProvider implements CalendarProvider
             $account->forceFill(['secret' => json_encode($client->getAccessToken() + ['refresh_token' => $client->getRefreshToken()])])->save();
         }
 
-        return new Calendar($client);
+        return $client;
     }
 }

@@ -7,6 +7,7 @@ use App\Calendar\CalendarSyncException;
 use App\Calendar\EventData;
 use App\Calendar\RemoteCalendar;
 use App\Inbox\MailMessage;
+use App\Inbox\MailProvider;
 use App\Models\CalendarAccount;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\PendingRequest;
@@ -23,7 +24,7 @@ use Illuminate\Support\Str;
  *
  * El secreto de la cuenta guarda (cifrado) un JSON con: password, authToken, expiresAt, trustedToken, deviceId.
  */
-class ZimbraProvider implements CalendarProvider
+class ZimbraProvider implements CalendarProvider, MailProvider
 {
     public const USER_AGENT = 'Smartgenda/1.0';
 

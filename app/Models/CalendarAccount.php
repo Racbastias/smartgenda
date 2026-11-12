@@ -50,10 +50,10 @@ class CalendarAccount extends Model
         return $this->hasMany(EmailItem::class);
     }
 
-    /** Por ahora solo Zimbra lee correo (Gmail llega con las credenciales de Google). */
+    /** Cuentas con correo: Zimbra y Google (Gmail). */
     public function supportsMail(): bool
     {
-        return $this->provider === self::ZIMBRA;
+        return in_array($this->provider, [self::ZIMBRA, self::GOOGLE], true);
     }
 
     public function isConnected(): bool
