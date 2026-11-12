@@ -29,7 +29,7 @@ class InboxController extends Controller
             'pending' => $pending,
             'others' => $others,
             'mailAccounts' => $user->calendarAccounts()->where('mail_enabled', true)->get(),
-            'canSummarize' => (bool) config('services.anthropic.key'),
+            'usesAi' => (bool) config('services.anthropic.key'),
         ]);
     }
 
@@ -49,8 +49,6 @@ class InboxController extends Controller
     /** Revisar el correo ahora, sin esperar la tarea programada. */
     public function refresh(Request $request, InboxDigest $digest): RedirectResponse
     {
-        abort_unless(config('services.anthropic.key'), 503, 'Falta configurar la clave de la IA.');
-
         $count = 0;
         $errors = [];
         foreach ($request->user()->calendarAccounts()->where('mail_enabled', true)->get() as $account) {

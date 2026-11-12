@@ -7,9 +7,11 @@ use App\Inbox\ClaudeSummarizer;
 use App\Inbox\EmailSummarizer;
 use App\Inbox\InboxDigest;
 use App\Inbox\MailMessage;
+use App\Inbox\RuleSummarizer;
 use App\Models\CalendarAccount;
 use App\Models\EmailItem;
 use App\Models\User;
+use App\Providers\AppServiceProvider;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -133,6 +135,18 @@ class InboxTest extends TestCase
         Http::fake();
         $this->assertSame(0, app(InboxDigest::class)->run($this->account(['mail_enabled' => false])));
         Http::assertNothingSent();
+    }
+
+    public function test_rules_are_used_without_an_api_key(): void
+    {
+        $this->app->forgetInstance(EmailSummarizer::class);
+        $this->app->offsetUnset(EmailSummarizer::class);
+        (new AppServiceProvider($this->app))->register();
+
+        config(['services.anthropic.key' => null]);
+        $this->assertInstanceOf(RuleSummarizer::class, app(EmailSummarizer::class));
+        config(['services.anthropic.key' => 'k']);
+        $this->assertInstanceOf(ClaudeSummarizer::class, app(EmailSummarizer::class));
     }
 
     public function test_claude_output_is_validated(): void

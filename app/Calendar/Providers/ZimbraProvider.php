@@ -181,10 +181,20 @@ class ZimbraProvider implements CalendarProvider
                 subject: $this->text($m['su'] ?? null) ?? '',
                 receivedAt: $received,
                 body: $body,
+                replied: str_contains((string) ($m['f'] ?? ''), 'r'),
+                directlyAddressed: $this->isAddressedTo($m['e'] ?? [], (string) $account->username),
             );
         }
 
         return $messages;
+    }
+
+    /** true si la cuenta está en "Para", o si no se sabe (sin destinatarios visibles, ej. listas). */
+    private function isAddressedTo(array $addresses, string $me): bool
+    {
+        $to = collect($addresses)->where('t', 't')->pluck('a')->map(fn ($a) => mb_strtolower((string) $a));
+
+        return $to->isEmpty() || $to->contains(mb_strtolower($me));
     }
 
     /** Texto del cuerpo: la parte marcada como cuerpo, o la primera text/plain (o text/html sin etiquetas). */

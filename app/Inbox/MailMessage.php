@@ -15,5 +15,7 @@ final readonly class MailMessage
         public string $subject,
         public CarbonImmutable $receivedAt,
         public string $body,
+        public bool $replied = false,          // ya se respondió desde la cuenta
+        public bool $directlyAddressed = true, // la persona está en "Para" (no solo en copia)
     ) {}
 }

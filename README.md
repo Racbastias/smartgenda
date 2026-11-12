@@ -26,9 +26,12 @@ Smartgenda inicia sesión en la API de Zimbra con la contraseña y el código de
 
 ## Resumen de correos
 
-En **Mis agendas**, una cuenta de Zimbra tiene el botón **Resumir correo**. Al activarlo, cada 30 minutos Smartgenda lee los correos nuevos de la bandeja de entrada (la primera vez, los de los últimos 3 días), los envía a la API de Claude (Anthropic) y guarda solo el resumen, si hay que responder y las acciones con su fecha. El cuerpo del correo no se guarda. En **Pendientes** cada acción se marca como hecha, se descarta o se agenda (abre el formulario de evento con el título y la fecha).
+En **Mis agendas**, una cuenta de Zimbra tiene el botón **Resumir correo**. Al activarlo, cada 30 minutos Smartgenda lee los correos nuevos de la bandeja de entrada (la primera vez, los de los últimos 3 días) y anota en **Pendientes** lo que piden. Cada acción se marca como hecha, se descarta o se agenda (abre el formulario de evento con el título y la fecha). El cuerpo del correo no se guarda.
 
-Requiere `ANTHROPIC_API_KEY` (console.anthropic.com → API Keys) como secreto de GitHub; el deploy la escribe en el `.env` del servidor. El modelo se cambia con `ANTHROPIC_MODEL` (por defecto `claude-opus-5-5`). Si el modelo declina un correo por política, la API reintenta sola con el modelo alternativo por defecto.
+Hay dos modos:
+
+- **Sin costo (por defecto)**: reglas simples (`RuleSummarizer`). Toma los correos dirigidos a ti (no en copia) que no has respondido, detecta pedidos y preguntas ("¿podrías…?", "favor enviar", "necesito", "urgente") y fechas ("el viernes", "15/11", "mañana"). Muestra el inicio del correo como resumen y deja como prioridad baja los boletines y las notificaciones automáticas.
+- **Con IA**: si existe `ANTHROPIC_API_KEY` (console.anthropic.com → API Keys, como secreto de GitHub; el deploy la escribe en el `.env`), los correos se envían a la API de Claude, que escribe el resumen y detecta compromisos con más precisión. Es pago por uso. El modelo se cambia con `ANTHROPIC_MODEL` (por defecto `claude-opus-5-5`). Si el modelo declina un correo por política, la API reintenta sola con el modelo alternativo por defecto.
 
 ## Desarrollo local
 

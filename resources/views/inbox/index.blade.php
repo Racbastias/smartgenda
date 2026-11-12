@@ -18,7 +18,7 @@
 @section('content')
 <div class="row" style="justify-content:space-between;margin-bottom:16px">
     <h1 style="margin:0">Pendientes del correo</h1>
-    @if ($mailAccounts->isNotEmpty() && $canSummarize)
+    @if ($mailAccounts->isNotEmpty())
         <form method="post" action="{{ route('inbox.refresh') }}">@csrf<button class="secondary">Revisar correo ahora</button></form>
     @endif
 </div>
@@ -28,8 +28,8 @@
         <p>Activa <strong>Resumir correo</strong> en una cuenta de Zimbra desde <a href="{{ route('accounts.index') }}">Mis agendas</a>.
         Smartgenda revisará la bandeja de entrada cada 30 minutos y anotará aquí lo que tienes que responder o hacer.</p>
     </div>
-@elseif (! $canSummarize)
-    <div class="card"><p>Falta configurar la clave de la IA (<code>ANTHROPIC_API_KEY</code>) en el servidor.</p></div>
+@elseif (! $usesAi)
+    <p class="muted">Pendientes detectados con reglas (pedidos, preguntas y fechas en correos dirigidos a ti que no has respondido). Con una clave de la API de Claude se reemplazan por resúmenes con IA.</p>
 @endif
 
 @php($fmt = fn ($d) => $d->locale('es')->isoFormat('ddd D MMM'))

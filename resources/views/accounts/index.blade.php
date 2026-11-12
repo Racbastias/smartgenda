@@ -42,7 +42,7 @@
                 <form method="post" action="{{ route('accounts.sync', $account) }}">@csrf<button class="secondary">Sincronizar</button></form>
                 @if ($account->supportsMail())
                     <form method="post" action="{{ route('accounts.update', $account) }}"
-                          @unless ($account->mail_enabled) onsubmit="return confirm('Smartgenda leerá los correos nuevos de la bandeja de entrada y los enviará a la IA de Claude (Anthropic) para resumirlos. Solo se guarda el resumen. ¿Activar?')" @endunless>
+                          @if (! $account->mail_enabled && config('services.anthropic.key')) onsubmit="return confirm('Smartgenda leerá los correos nuevos de la bandeja de entrada y los enviará a la IA de Claude (Anthropic) para resumirlos. Solo se guarda el resumen. ¿Activar?')" @endif>
                         @csrf @method('patch')
                         <input type="hidden" name="mail_enabled" value="{{ $account->mail_enabled ? 0 : 1 }}">
                         <button class="secondary">{{ $account->mail_enabled ? 'Dejar de resumir correo' : 'Resumir correo' }}</button>

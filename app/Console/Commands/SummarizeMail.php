@@ -14,12 +14,6 @@ class SummarizeMail extends Command
 
     public function handle(InboxDigest $digest): int
     {
-        if (! config('services.anthropic.key')) {
-            $this->warn('Falta ANTHROPIC_API_KEY; no se resumen correos.');
-
-            return self::SUCCESS;
-        }
-
         CalendarAccount::where('mail_enabled', true)->with('user')->each(function (CalendarAccount $account) use ($digest) {
             $count = $digest->run($account);
             $this->line("{$account->user->name} · {$account->name}: {$count} correos nuevos".($account->mail_error ? " (error: {$account->mail_error})" : ''));
