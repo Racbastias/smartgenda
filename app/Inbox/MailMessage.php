@@ -17,5 +17,6 @@ final readonly class MailMessage
         public string $body,
         public bool $replied = false,          // ya se respondió desde la cuenta
         public bool $directlyAddressed = true, // la persona está en "Para" (no solo en copia)
+        public bool $bulk = false,             // envío masivo (List-Unsubscribe / Precedence: bulk)
     ) {}
 }

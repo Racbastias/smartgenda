@@ -3,6 +3,7 @@
 namespace App\Inbox;
 
 use App\Calendar\Providers\ZimbraProvider;
+use App\Models\BlockedSender;
 use App\Models\CalendarAccount;
 use App\Models\EmailItem;
 use Carbon\CarbonImmutable;
@@ -37,8 +38,11 @@ class InboxDigest
 
             $known = $account->emailItems()->where('received_at', '>=', $since)->pluck('remote_id')->flip();
             $own = mb_strtolower((string) $account->username);
+            $blocked = $account->user->blockedSenders()->pluck('pattern');
             $messages = collect($this->zimbra->fetchMessages($account, $since))
-                ->reject(fn (MailMessage $m) => $known->has($m->remoteId) || mb_strtolower((string) $m->fromEmail) === $own)
+                ->reject(fn (MailMessage $m) => $known->has($m->remoteId)
+                    || mb_strtolower((string) $m->fromEmail) === $own
+                    || BlockedSender::matches($blocked, $m->fromEmail))
                 ->values();
 
             $created = 0;

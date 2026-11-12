@@ -149,6 +149,52 @@ class InboxTest extends TestCase
         $this->assertInstanceOf(ClaudeSummarizer::class, app(EmailSummarizer::class));
     }
 
+    public function test_zimbra_marks_list_mail_as_bulk(): void
+    {
+        $this->fakeSearch([$this->message('5', 'Oferta', '2026-11-12 10:00', extra: ['_attrs' => ['List-Unsubscribe' => '<mailto:x@y.cl>']])]);
+
+        $messages = app(ZimbraProvider::class)->fetchMessages($this->account(), CarbonImmutable::parse('2026-11-10'));
+
+        $this->assertTrue($messages[0]->bulk);
+        Http::assertSent(fn (Request $r) => collect($r->data()['Body']['SearchRequest']['header'])->pluck('n')->contains('List-Unsubscribe'));
+    }
+
+    public function test_blocking_a_sender_hides_current_and_future_mail(): void
+    {
+        $account = $this->account();
+        $item = $account->emailItems()->create(['remote_id' => '1', 'from_email' => 'promo@tienda.cl', 'received_at' => now(),
+            'summary' => 'x', 'needs_reply' => true, 'actions' => []]);
+        $same = $account->emailItems()->create(['remote_id' => '2', 'from_email' => 'ventas@tienda.cl', 'received_at' => now(),
+            'summary' => 'y', 'needs_reply' => true, 'actions' => []]);
+
+        $this->actingAs($account->user)->postJson("/pendientes/{$item->id}/bloquear", ['scope' => 'domain'])
+            ->assertOk()->assertJson(['hidden' => 2]);
+        $this->assertSame('dismissed', $same->fresh()->status);
+
+        $this->fakeSearch([
+            $this->message('3', 'Cotización', '2026-11-12 14:00', from: 'news@tienda.cl'),
+            $this->message('4', 'Cotización', '2026-11-12 13:00'),
+        ]);
+        $this->assertSame(1, app(InboxDigest::class)->run($account->fresh()));
+        $this->assertSame([['4']], $this->summarizer->calls);
+
+        $blocked = $account->user->blockedSenders()->first();
+        $this->assertSame('@tienda.cl', $blocked->pattern);
+        $this->actingAs($account->user)->delete("/remitentes-bloqueados/{$blocked->id}")->assertRedirect();
+        $this->assertSame(0, $account->user->blockedSenders()->count());
+    }
+
+    public function test_users_cannot_block_or_unblock_for_others(): void
+    {
+        $account = $this->account();
+        $item = $account->emailItems()->create(['remote_id' => '1', 'from_email' => 'a@b.cl', 'received_at' => now(), 'summary' => 'x', 'actions' => []]);
+        $intruder = User::factory()->create();
+
+        $this->actingAs($intruder)->postJson("/pendientes/{$item->id}/bloquear", ['scope' => 'sender'])->assertNotFound();
+        $b = $account->user->blockedSenders()->create(['pattern' => 'a@b.cl']);
+        $this->actingAs($intruder)->delete("/remitentes-bloqueados/{$b->id}")->assertNotFound();
+    }
+
     public function test_claude_output_is_validated(): void
     {
         $messages = [new MailMessage('7', null, null, null, 'x', CarbonImmutable::now(), 'y')];

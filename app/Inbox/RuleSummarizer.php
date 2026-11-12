@@ -21,6 +21,12 @@ class RuleSummarizer implements EmailSummarizer
     /** Remitentes automáticos: boletines, notificaciones, sistemas. */
     private const AUTOMATED = '/(no-?reply|noreply|notificaci|notification|newsletter|boletin|mailer|bounce|postmaster|alertas?@|info@|marketing|news@)/i';
 
+    /** Textos típicos de boletines y publicidad. */
+    private const BULK_TEXT = '/(ver (este|el) (correo|mail|mensaje|e-?mail) en (tu|su|el) navegador|ver (correo|mail|mensaje) en (tu|su|el) navegador|'
+        .'si no (puede|puedes|logra|logras) ver (este|el|bien este) (correo|mail|mensaje|e-?mail)|'
+        .'darse de baja|date de baja|desuscrib|anular (la |tu |su )?suscripci|cancelar (la |tu |su )?suscripci|unsubscribe|view (this )?(email|in browser)|'
+        .'dejar de recibir|no (responda|respondas) (a )?este (correo|mensaje)|correo (generado|enviado) autom[aá]ticamente)/iu';
+
     private const WEEKDAYS = ['domingo' => 0, 'lunes' => 1, 'martes' => 2, 'miercoles' => 3, 'jueves' => 4, 'viernes' => 5, 'sabado' => 6];
 
     private const MONTHS = ['enero' => 1, 'febrero' => 2, 'marzo' => 3, 'abril' => 4, 'mayo' => 5, 'junio' => 6, 'julio' => 7,
@@ -40,7 +46,9 @@ class RuleSummarizer implements EmailSummarizer
     private function one(MailMessage $m, CarbonImmutable $day): EmailSummary
     {
         $text = $this->ownText($m->body);
-        $automated = (bool) preg_match(self::AUTOMATED, (string) $m->fromEmail);
+        $automated = $m->bulk
+            || preg_match(self::AUTOMATED, (string) $m->fromEmail)
+            || preg_match(self::BULK_TEXT, $m->body);
         $sentences = $this->sentences($text);
 
         $actions = [];
@@ -92,6 +100,9 @@ class RuleSummarizer implements EmailSummarizer
     /** @return list<string> */
     private function sentences(string $text): array
     {
+        // Sin enlaces: no aportan al resumen y rompen el diseño
+        $text = trim(preg_replace(['#\(?\s*(https?://|www\.)\S+\s*\)?#iu', '/[ \t]{2,}/'], ['', ' '], $text));
+
         $parts = preg_split('/(?<=[.!?])\s+(?=[¿¡A-ZÁÉÍÓÚÑ0-9])/u', $text) ?: [];
 
         return array_values(array_filter(array_map('trim', $parts), fn ($s) => mb_strlen($s) > 3));

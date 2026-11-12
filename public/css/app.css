@@ -134,8 +134,9 @@ textarea.input { min-height: 80px; resize: vertical; }
 .task.is-done .task-check { background: var(--accent); border-color: var(--accent); }
 .task.is-done .task-check svg { opacity: 1; }
 .task.is-done .task-title { text-decoration: line-through; color: var(--muted); }
-.task-title { font-weight: 500; }
-.task-summary { color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 2px; }
+.task > .grow { min-width: 0; }
+.task-title { font-weight: 500; overflow-wrap: anywhere; }
+.task-summary { overflow-wrap: anywhere; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 2px; }
 .task-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
 .task-due { color: var(--danger); font-size: 12px; font-weight: 500; }
 .task-actions { display: flex; gap: 4px; opacity: 0; transition: opacity .12s; }
@@ -283,3 +284,10 @@ tr:last-child td { border-bottom: 0; }
     .task > .grow { flex: 1 1 calc(100% - 40px); }
     .task-actions { width: 100%; padding-left: 32px; }
 }
+
+/* Menú de opciones de un pendiente */
+.menu { position: relative; }
+.menu-list { position: absolute; right: 0; top: calc(100% + 4px); z-index: 10; min-width: 240px; max-width: 320px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); padding: 4px; }
+.menu-list button { display: block; width: 100%; text-align: left; min-height: 36px; padding: 6px 10px; border: 0; border-radius: 6px; background: transparent; font: 13px var(--font); color: var(--text); cursor: pointer; overflow-wrap: anywhere; }
+.menu-list button:hover { background: var(--subtle); }
+@media (max-width: 767px) { .menu-list { right: auto; left: 0; } .menu-list button { min-height: 44px; } }

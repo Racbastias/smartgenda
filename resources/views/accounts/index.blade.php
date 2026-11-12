@@ -93,6 +93,27 @@
             </div>
         </section>
 
+        {{-- Remitentes ocultos en Pendientes --}}
+        @if ($blocked->isNotEmpty())
+            <section class="card">
+                <div class="integration-head">
+                    <div class="integration-logo" style="background:#B91C1C">×</div>
+                    <div class="grow">
+                        <h2>Remitentes ocultos</h2>
+                        <p class="small muted">Sus correos no aparecen en Pendientes. Se siguen recibiendo normalmente en tu correo.</p>
+                    </div>
+                </div>
+                <div class="integration-body">
+                    @foreach ($blocked as $b)
+                        <div class="row" style="justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+                            <span class="grow" style="overflow-wrap:anywhere">{{ $b->pattern }}</span>
+                            <form method="post" action="{{ route('inbox.unblock', $b) }}">@csrf @method('delete')<button class="btn btn-sm btn-ghost">Volver a mostrar</button></form>
+                        </div>
+                    @endforeach
+                </div>
+            </section>
+        @endif
+
         {{-- Otras agendas CalDAV --}}
         <section class="card">
             <div class="integration-head">

@@ -33,10 +33,10 @@
                     allDay: !!d.allDay, date: ymd(start), start: hm(start), end: hm(end),
                 };
                 this.error = '';
-                this.visible = true;
+                this.visible = true; window.sgModalOpen = true;
                 this.$nextTick(() => this.$refs.title.focus());
             },
-            close() { this.visible = false; },
+            close() { this.visible = false; window.sgModalOpen = false; },
             keepDuration() {
                 const [h, m] = this.form.start.split(':').map(Number);
                 const end = new Date(2000, 0, 1, h, m + this.duration);
@@ -59,7 +59,7 @@
                 });
                 this.saving = false;
                 if (!res.ok) { this.error = res.body.message || 'No se pudo guardar el evento.'; return; }
-                this.visible = false;
+                this.visible = false; window.sgModalOpen = false;
                 window.dispatchEvent(new CustomEvent('sg:event-saved'));
             },
         }));

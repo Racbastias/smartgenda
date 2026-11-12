@@ -17,7 +17,7 @@ class RuleSummarizerTest extends TestCase
         $m = new MailMessage(
             remoteId: '1', conversationId: null, fromName: 'Juan', fromEmail: $opts['from'] ?? 'juan@cliente.cl',
             subject: $opts['subject'] ?? 'Asunto', receivedAt: CarbonImmutable::parse('2026-11-12 13:00', 'UTC'), // jueves
-            body: $body, replied: $opts['replied'] ?? false, directlyAddressed: $opts['to'] ?? true,
+            body: $body, replied: $opts['replied'] ?? false, directlyAddressed: $opts['to'] ?? true, bulk: $opts['bulk'] ?? false,
         );
 
         return (new RuleSummarizer)->summarize(new User(['timezone' => 'America/Santiago']), [$m])['1'];
@@ -41,6 +41,29 @@ class RuleSummarizerTest extends TestCase
         $this->assertSame([], $news->actions);
         $this->assertSame('baja', $news->priority);
         $this->assertFalse($news->needsReply);
+    }
+
+    public function test_newsletters_and_marketing_are_not_pending(): void
+    {
+        foreach ([
+            'Si no puede ver este mail, haga click aquí https://e-ese.uandes.cl/webmail/799403. ¿Puede un Directorio ser innovador?',
+            'Mejora tu asiento en pocos pasos. Ver correo en tu navegador (https://latam.com/x). ¿Quieres un upgrade?',
+            'Hola Rubén, ¿Quieres hacer negocios? Si no deseas recibir más correos, date de baja aquí.',
+        ] as $body) {
+            $s = $this->summarize($body);
+            $this->assertSame([], $s->actions, $body);
+            $this->assertFalse($s->needsReply, $body);
+        }
+
+        $this->assertSame([], $this->summarize('¿Quieres hacer negocios?', ['bulk' => true])->actions);
+    }
+
+    public function test_links_are_removed_from_titles_and_summaries(): void
+    {
+        $s = $this->summarize('¿Me envías el informe (https://drive.google.com/abc123def456ghi789) antes del viernes?');
+
+        $this->assertSame('¿Me envías el informe antes del viernes?', $s->actions[0]['text']);
+        $this->assertStringNotContainsString('http', $s->summary);
     }
 
     public function test_cc_and_already_replied_mail_is_not_pending(): void
