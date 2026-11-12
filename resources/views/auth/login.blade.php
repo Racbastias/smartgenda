@@ -1,16 +1,10 @@
-@extends('layouts.app')
-@section('title', 'Entrar')
-@section('content')
-<div class="card" style="max-width:380px;margin:60px auto">
-    <h1>Smartgenda</h1>
-    <form method="post" action="{{ route('login') }}">
+<x-guest-layout title="Entrar">
+    <h1>Entrar</h1>
+    <form method="post" action="{{ route('login') }}" class="stack">
         @csrf
-        <label for="email">Correo</label>
-        <input id="email" name="email" type="email" value="{{ old('email') }}" required autofocus>
-        <label for="password">Contraseña</label>
-        <input id="password" name="password" type="password" required>
-        <label class="row"><input type="checkbox" name="remember" value="1"> Recordarme</label>
-        <p><button>Entrar</button></p>
+        <label class="field"><span>Correo</span><input class="input" name="email" type="email" value="{{ old('email') }}" autocomplete="username" required autofocus></label>
+        <label class="field"><span>Contraseña</span><input class="input" name="password" type="password" autocomplete="current-password" required></label>
+        <label class="check"><input type="checkbox" name="remember" value="1"> Recordarme</label>
+        <button class="btn btn-primary" style="width:100%">Entrar</button>
     </form>
-</div>
-@endsection
+</x-guest-layout>

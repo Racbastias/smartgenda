@@ -175,14 +175,15 @@ class InboxTest extends TestCase
         $other->emailItems()->create(['remote_id' => '3', 'subject' => 'Correo de otra persona', 'received_at' => now(),
             'summary' => 'x', 'needs_reply' => true, 'actions' => []]);
 
-        $this->actingAs($account->user)->get('/pendientes')
+        $this->actingAs($account->user)->get('/pendientes')->assertRedirect('/');
+        $this->actingAs($account->user)->get('/')
             ->assertOk()
-            ->assertSee('Cotización urgente')
-            ->assertSee('Enviar cotización')
-            ->assertSee('Newsletter') // en "otros correos"
+            ->assertSee('Enviar cotización') // la primera acción es el título
+            ->assertSee('Pide cotización')
+            ->assertDontSee('Boletín') // informativo: no es pendiente
             ->assertDontSee('Correo de otra persona');
 
-        $this->actingAs($account->user)->patch("/pendientes/{$mine->id}", ['status' => 'done'])->assertRedirect();
+        $this->actingAs($account->user)->patchJson("/pendientes/{$mine->id}", ['status' => 'done'])->assertOk()->assertJson(['status' => 'done']);
         $this->assertSame('done', $mine->fresh()->status);
 
         $foreign = $other->emailItems()->first();

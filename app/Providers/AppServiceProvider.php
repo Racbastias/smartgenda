@@ -6,6 +6,7 @@ use Anthropic\Client;
 use App\Inbox\ClaudeSummarizer;
 use App\Inbox\EmailSummarizer;
 use App\Inbox\RuleSummarizer;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -28,6 +29,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Agendas donde el usuario puede crear eventos (modal global del layout)
+        View::composer('components.app-layout', function ($view) {
+            $view->with('eventAccounts', auth()->user()?->calendarAccounts()
+                ->whereNotNull('calendar_ref')->orderBy('name')->get() ?? collect());
+        });
     }
 }

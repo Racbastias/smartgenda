@@ -1,6 +1,6 @@
 # Smartgenda
 
-Agenda unificada: junta en una sola vista las agendas de **Lilienfeld (Zimbra)**, **Aminfo (Google Workspace)** y la **personal (iCloud)**, avisa los choques de horario y permite crear eventos que quedan guardados en la agenda original (se ven en el teléfono, Outlook, Zimbra, etc.).
+Agenda unificada: la pantalla **Hoy** muestra los pendientes del correo junto a la línea de tiempo del día; **Agenda** junta en una sola vista las agendas de **Lilienfeld (Zimbra)**, **Aminfo (Google Workspace)** y la **personal (iCloud)**, avisa los choques de horario y permite crear eventos que quedan guardados en la agenda original (se ven en el teléfono, Outlook, Zimbra, etc.).
 
 Es multiusuario: cada persona entra con su propio usuario y conecta sus propias agendas. Nadie ve las agendas de otro.
 
@@ -89,4 +89,6 @@ Un administrador entra a **Usuarios** y crea el acceso. La persona entra con esa
 - `app/Calendar/CalendarSync.php`: copia local de los eventos (ventana de 14 días atrás a 90 adelante).
 - `app/Calendar/ConflictDetector.php`: choques de horario entre agendas distintas.
 - `app/Inbox/`: resumen de correos (`InboxDigest` lee y guarda, `ClaudeSummarizer` resume con la API de Claude).
+- `resources/views/components/`: layout (`<x-app-layout>`), modal único de eventos, selector de color, fila de cuenta.
+- `public/css/app.css` y `public/js/app.js`: estilos y utilidades sin build. Alpine.js 3.14.9 (MIT) en `public/vendor/alpine/`.
 - `public/vendor/fullcalendar/`: FullCalendar 6.1.15 (MIT), incluido para no depender de un CDN.

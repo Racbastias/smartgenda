@@ -39,6 +39,23 @@ class EmailItem extends Model
         $query->where(fn (Builder $q) => $q->where('needs_reply', true)->orWhereJsonLength('actions', '>', 0));
     }
 
+    /** Título para la lista: la primera acción, o el asunto. */
+    public function headline(): string
+    {
+        return $this->actions[0]['text'] ?? ($this->subject ?: '(sin asunto)');
+    }
+
+    /** Enlace para abrir el correo en el webmail (requiere tener sesión abierta en el webmail). */
+    public function webUrl(): ?string
+    {
+        $account = $this->account;
+        if ($account?->provider !== CalendarAccount::ZIMBRA || ! $account->server_url) {
+            return null;
+        }
+
+        return rtrim($account->server_url, '/').'/h/printmessage?id='.rawurlencode($this->remote_id);
+    }
+
     public function sender(): string
     {
         return $this->from_name ?: ($this->from_email ?: 'Desconocido');

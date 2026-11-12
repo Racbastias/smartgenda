@@ -4,40 +4,27 @@ namespace App\Http\Controllers;
 
 use App\Inbox\InboxDigest;
 use App\Models\EmailItem;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
 
 /** "Pendientes": lo que piden los correos (responder, acciones y compromisos). */
 class InboxController extends Controller
 {
-    public function index(Request $request): View
+    /** La lista de pendientes ahora vive en "Hoy". */
+    public function index(): RedirectResponse
     {
-        $user = $request->user();
-        $base = fn () => $user->emailItems()->with('account')->where('status', EmailItem::PENDING);
-
-        $pending = $base()->actionable()
-            ->orderByRaw("case priority when 'alta' then 0 when 'media' then 1 else 2 end")
-            ->orderByRaw('due_on is null')->orderBy('due_on')
-            ->orderByDesc('received_at')
-            ->get();
-
-        $others = $base()->whereNotIn('email_items.id', $pending->modelKeys())
-            ->orderByDesc('received_at')->limit(30)->get();
-
-        return view('inbox.index', [
-            'pending' => $pending,
-            'others' => $others,
-            'mailAccounts' => $user->calendarAccounts()->where('mail_enabled', true)->get(),
-            'usesAi' => (bool) config('services.anthropic.key'),
-        ]);
+        return redirect()->route('today');
     }
 
-    public function update(Request $request, EmailItem $item): RedirectResponse
+    public function update(Request $request, EmailItem $item): RedirectResponse|JsonResponse
     {
         abort_unless($item->account?->user_id === $request->user()->id, 404);
         $data = $request->validate(['status' => ['required', 'in:pending,done,dismissed']]);
         $item->update($data);
+        if ($request->wantsJson()) {
+            return response()->json(['status' => $item->status]);
+        }
 
         return back()->with('status', match ($data['status']) {
             EmailItem::DONE => 'Marcado como hecho.',
