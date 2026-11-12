@@ -27,6 +27,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/cuentas/google/callback', [CalendarAccountController::class, 'googleCallback'])->name('accounts.google.callback');
     Route::get('/cuentas/{account}/calendario', [CalendarAccountController::class, 'choose'])->name('accounts.choose');
     Route::patch('/cuentas/{account}', [CalendarAccountController::class, 'update'])->name('accounts.update');
+    Route::post('/cuentas/{account}/codigo', [CalendarAccountController::class, 'reauthenticate'])->name('accounts.reauth')->middleware('throttle:10,1');
     Route::post('/cuentas/{account}/sincronizar', [CalendarAccountController::class, 'sync'])->name('accounts.sync');
     Route::delete('/cuentas/{account}', [CalendarAccountController::class, 'destroy'])->name('accounts.destroy');
 

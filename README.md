@@ -14,11 +14,15 @@ Es multiusuario: cada persona entra con su propio usuario y conecta sus propias 
 
 | Agenda | Protocolo | Qué se pide |
 |---|---|---|
-| Zimbra (Lilienfeld) | CalDAV | Dirección del webmail, usuario y contraseña |
+| Zimbra (Lilienfeld) | API de Zimbra (SOAP + REST) | Dirección del webmail, correo, contraseña y, si hay doble factor, el código de 6 dígitos de la app autenticadora |
 | iCloud (personal) | CalDAV (`caldav.icloud.com`) | Apple ID y una **contraseña de aplicación** (appleid.apple.com → Inicio de sesión y seguridad) |
 | Google (Aminfo) | Google Calendar API, OAuth | Iniciar sesión con Google |
 
 Las contraseñas y tokens se guardan cifrados con `APP_KEY`. Si se pierde `APP_KEY`, hay que volver a conectar las agendas.
+
+### Zimbra con doble factor
+
+Smartgenda inicia sesión en la API de Zimbra con la contraseña y el código de la app autenticadora, y se registra como **dispositivo de confianza**. Desde ahí la sesión se renueva sola (contraseña + token de confianza). Cuando Zimbra deja de aceptar ese token (lo define el administrador, por ejemplo cada 30 días) o si el servidor tiene desactivados los dispositivos de confianza, en **Mis agendas** aparece un campo para ingresar un código nuevo.
 
 ## Desarrollo local
 
@@ -70,7 +74,8 @@ Un administrador entra a **Usuarios** y crea el acceso. La persona entra con esa
 
 ## Estructura
 
-- `app/Calendar/Providers/CalDavProvider.php`: Zimbra, iCloud y CalDAV genérico (descubrimiento, lectura con repeticiones expandidas, creación).
+- `app/Calendar/Providers/ZimbraProvider.php`: Zimbra por su API, con doble factor y dispositivo de confianza.
+- `app/Calendar/Providers/CalDavProvider.php`: iCloud y CalDAV genérico (descubrimiento, lectura con repeticiones expandidas, creación).
 - `app/Calendar/Providers/GoogleProvider.php`: Google Calendar.
 - `app/Calendar/CalendarSync.php`: copia local de los eventos (ventana de 14 días atrás a 90 adelante).
 - `app/Calendar/ConflictDetector.php`: choques de horario entre agendas distintas.

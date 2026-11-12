@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Calendar\CalendarSync;
 use App\Calendar\ProviderRegistry;
 use App\Calendar\Providers\GoogleProvider;
+use App\Calendar\Providers\ZimbraProvider;
 use App\Models\CalendarAccount;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,7 +25,7 @@ class CalendarAccountController extends Controller
         ]);
     }
 
-    /** Conectar una agenda CalDAV (Zimbra, iCloud u otra). */
+    /** Conectar Zimbra (por su API), iCloud u otra agenda CalDAV. */
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
@@ -34,7 +35,28 @@ class CalendarAccountController extends Controller
             'server' => ['required_unless:kind,icloud', 'nullable', 'string', 'max:255'],
             'username' => ['required', 'string', 'max:255'],
             'password' => ['required', 'string', 'max:255'],
+            'code' => ['nullable', 'string', 'max:12'],
         ]);
+
+        if ($data['kind'] === 'zimbra') {
+            $account = new CalendarAccount([
+                'name' => $data['name'],
+                'color' => $data['color'],
+                'provider' => CalendarAccount::ZIMBRA,
+                'server_url' => $this->origin((string) $data['server']),
+                'username' => $data['username'],
+                'secret' => json_encode(['password' => $data['password']]),
+            ]);
+            $account->user()->associate($request->user());
+
+            try {
+                app(ZimbraProvider::class)->authenticate($account, $data['code'] ?: null);
+            } catch (Throwable $e) {
+                return back()->withInput($request->except('password', 'code'))->withErrors(['account' => $e->getMessage()]);
+            }
+
+            return $this->pickCalendar($account);
+        }
 
         $account = new CalendarAccount([
             'name' => $data['name'],
@@ -86,6 +108,32 @@ class CalendarAccountController extends Controller
         }
 
         return redirect()->route('accounts.index')->with('status', "Agenda «{$account->name}» actualizada.");
+    }
+
+    /** Zimbra: ingresar un código nuevo (y opcionalmente la contraseña) cuando la sesión de confianza vence. */
+    public function reauthenticate(Request $request, CalendarAccount $account): RedirectResponse
+    {
+        $this->authorizeOwner($request, $account);
+        abort_unless($account->provider === CalendarAccount::ZIMBRA, 404);
+
+        $data = $request->validate([
+            'code' => ['required', 'string', 'max:12'],
+            'password' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        if (filled($data['password'] ?? null)) {
+            $account->secret = json_encode(['password' => $data['password']]);
+        }
+
+        try {
+            app(ZimbraProvider::class)->authenticate($account, $data['code']);
+        } catch (Throwable $e) {
+            return back()->withErrors(['account' => $e->getMessage()]);
+        }
+        $account->save();
+        $this->sync->sync($account);
+
+        return back()->with('status', "Agenda «{$account->name}» reconectada.");
     }
 
     public function sync(Request $request, CalendarAccount $account): RedirectResponse
@@ -158,7 +206,9 @@ class CalendarAccountController extends Controller
         }
 
         if ($account->provider === CalendarAccount::CALDAV || $account->calendar_ref === null) {
-            $account->calendar_ref = $calendars[0]->ref;
+            // Preferir el calendario principal si existe (Zimbra lo llama "Calendar")
+            $main = collect($calendars)->first(fn ($c) => in_array(strtolower($c->name), ['calendar', 'calendario'], true));
+            $account->calendar_ref = ($main ?? $calendars[0])->ref;
         }
         $account->is_default = ! $account->user->calendarAccounts()->exists();
         $account->save();
@@ -172,6 +222,17 @@ class CalendarAccountController extends Controller
         return redirect()->route('accounts.index')->with('status', "Agenda «{$account->name}» conectada.");
     }
 
+    private function origin(string $server): string
+    {
+        $server = trim($server);
+        if (! preg_match('#^https?://#i', $server)) {
+            $server = 'https://'.$server;
+        }
+        $parts = parse_url($server);
+
+        return $parts['scheme'].'://'.$parts['host'].(isset($parts['port']) ? ':'.$parts['port'] : '');
+    }
+
     /** @param array<string, string|null> $data */
     private function serverUrl(array $data): string
     {
@@ -182,9 +243,6 @@ class CalendarAccountController extends Controller
         $server = trim((string) $data['server']);
         if (! preg_match('#^https?://#i', $server)) {
             $server = 'https://'.$server;
-        }
-        if ($data['kind'] === 'zimbra' && ! str_contains(parse_url($server, PHP_URL_PATH) ?? '', '/dav')) {
-            $server = rtrim($server, '/').'/dav/'.str_replace('%40', '@', rawurlencode($data['username'])).'/';
         }
 
         return $server;
