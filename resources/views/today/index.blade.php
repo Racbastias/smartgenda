@@ -1,5 +1,11 @@
 @php
     $px = 56 / 60; // alto de un minuto en la línea de tiempo
+    $detail = fn ($e) => [
+        'id' => $e->id, 'title' => $e->title, 'agenda' => $e->calendarAccount->name, 'color' => $e->calendarAccount->color,
+        'location' => $e->location, 'description' => $e->description,
+        'when' => ucfirst($e->starts_at->setTimezone($tz)->locale('es')->isoFormat('dddd D [de] MMMM')).' · '
+            .($e->all_day ? 'todo el día' : $e->starts_at->setTimezone($tz)->format('H:i').'–'.$e->ends_at->setTimezone($tz)->format('H:i')),
+    ];
     $isToday = $day->isSameDay(now($tz));
     $counts = [
         'all' => $tasks->count(),
@@ -60,6 +66,9 @@
                             </div>
                         </div>
                         <div class="task-actions">
+                            @if ($task->account->provider === 'zimbra' && $task->from_email)
+                                <button type="button" class="btn btn-sm" x-on:click="openReply(@js(route('inbox.reply', $task)), @js($task->from_name ? $task->from_name.' <'.$task->from_email.'>' : $task->from_email), @js(preg_match('/^\s*(re|rv|fw|fwd)\s*:/i', (string) $task->subject) ? $task->subject : 'RE: '.$task->subject))">Responder</button>
+                            @endif
                             <button type="button" class="btn btn-sm" x-on:click="schedule(@js($task->headline()), @js($task->due_on?->toDateString()), @js('Del correo de '.$task->sender().': '.$task->subject))">Agendar</button>
                             @if ($url = $task->webUrl())
                                 <a class="btn btn-sm btn-ghost" href="{{ $url }}" target="_blank" rel="noopener">Ver correo</a>
@@ -68,6 +77,9 @@
                                 <button type="button" class="btn btn-sm btn-ghost" x-on:click="open = !open" :aria-expanded="open" aria-label="Más opciones" title="Descartar u ocultar">⋯</button>
                                 <div class="menu-list" x-show="open" x-cloak x-transition.opacity>
                                     <button type="button" x-on:click="dismiss({{ $task->id }}, @js(route('inbox.update', $task)))">Descartar este pendiente</button>
+                                    @if ($task->account->provider === 'zimbra')
+                                        <button type="button" x-on:click="trash({{ $task->id }}, @js(route('inbox.trash', $task)))" style="color:var(--danger)">Eliminar correo (va a la Papelera)</button>
+                                    @endif
                                     @if ($task->from_email)
                                         @php($domain = '@'.substr(strrchr(mb_strtolower($task->from_email), '@') ?: '@', 1))
                                         <button type="button" x-on:click="block(@js(route('inbox.block', $task)), 'sender')">No mostrar más de {{ mb_strtolower($task->from_email) }}</button>
@@ -97,7 +109,7 @@
                 @if ($allDay->isNotEmpty())
                     <div class="allday">
                         @foreach ($allDay as $event)
-                            <span class="ev chip-ev" style="--cal-color: {{ $event->calendarAccount->color }}" title="{{ $event->calendarAccount->name }}">{{ $event->title }}</span>
+                            <span class="ev chip-ev" role="button" tabindex="0" x-on:click="sgShowEvent(@js($detail($event)))" style="--cal-color: {{ $event->calendarAccount->color }}" title="{{ $event->calendarAccount->name }}">{{ $event->title }}</span>
                         @endforeach
                     </div>
                 @endif
@@ -110,7 +122,7 @@
                         @endfor
                         @foreach ($timed as $item)
                             @php($e = $item['event'])
-                            <div @class(['ev', 'tl-event', 'is-short' => $item['height'] < 45, 'is-conflict' => isset($conflicts[$e->id])])
+                            <div @class(['ev', 'tl-event', 'is-short' => $item['height'] < 45, 'is-conflict' => isset($conflicts[$e->id])]) role="button" tabindex="0" x-on:click="sgShowEvent(@js($detail($e)))"
                                  style="--cal-color: {{ $e->calendarAccount->color }}; top: {{ round($item['top'] * $px) }}px; height: {{ round($item['height'] * $px) - 2 }}px;
                                         left: calc({{ $item['lane'] }} * (100% - 8px) / {{ $item['lanes'] }} + 4px); width: calc((100% - 8px) / {{ $item['lanes'] }} - 4px);"
                                  title="{{ $e->title }} · {{ $e->calendarAccount->name }}{{ isset($conflicts[$e->id]) ? ' · ⚠ choca con otra agenda' : '' }}">
@@ -126,6 +138,28 @@
                     @endif
                 </div>
             </section>
+        </div>
+
+        {{-- Responder un correo --}}
+        <div class="modal-backdrop" x-show="reply.open" x-cloak x-transition.opacity x-on:click.self="closeReply()" x-on:keydown.escape.window="closeReply()">
+            <form class="modal" role="dialog" aria-modal="true" aria-labelledby="rp-title" x-on:submit.prevent="sendReply()">
+                <div class="grabber"></div>
+                <div class="modal-head">
+                    <h2 id="rp-title">Responder</h2>
+                    <button type="button" class="btn btn-ghost btn-sm" x-on:click="closeReply()" aria-label="Cerrar"><x-icon name="x"/></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small"><span class="muted">Para:</span> <span x-text="reply.to" style="overflow-wrap:anywhere"></span></p>
+                    <p class="small"><span class="muted">Asunto:</span> <span x-text="reply.subject" style="overflow-wrap:anywhere"></span></p>
+                    <textarea class="input" rows="8" x-ref="replyBody" x-model="reply.body" placeholder="Escribe tu respuesta…" required maxlength="20000"></textarea>
+                    <p class="hint">Se envía desde tu cuenta de Zimbra y queda en Enviados.</p>
+                    <p class="error-text" x-show="reply.error" x-text="reply.error" role="alert"></p>
+                </div>
+                <div class="modal-foot">
+                    <button type="button" class="btn" x-on:click="closeReply()">Cancelar</button>
+                    <button class="btn btn-primary" :disabled="reply.sending" x-text="reply.sending ? 'Enviando…' : 'Enviar'">Enviar</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -152,6 +186,27 @@
                     return this.tab === 'all' || (this.tab === 'alta' && priority === 'alta') || this.tab === provider;
                 },
                 get anyVisible() { return counts[this.tab] > 0; },
+                reply: { open: false, url: '', to: '', subject: '', body: '', sending: false, error: '' },
+                openReply(url, to, subject) {
+                    this.reply = { open: true, url, to, subject, body: '', sending: false, error: '' };
+                    window.sgModalOpen = true;
+                    this.$nextTick(() => this.$refs.replyBody.focus());
+                },
+                closeReply() { this.reply.open = false; window.sgModalOpen = false; },
+                async sendReply() {
+                    this.reply.sending = true; this.reply.error = '';
+                    const res = await sgFetch(this.reply.url, 'POST', { body: this.reply.body });
+                    this.reply.sending = false;
+                    if (!res.ok) { this.reply.error = res.body.message || 'No se pudo enviar la respuesta.'; return; }
+                    this.closeReply();
+                    location.reload();
+                },
+                async trash(id, url) {
+                    if (!confirm('¿Eliminar este correo? Se mueve a la Papelera de tu Zimbra y se puede recuperar desde ahí.')) return;
+                    this.gone[id] = true;
+                    const res = await sgFetch(url, 'POST');
+                    if (!res.ok) { this.gone[id] = false; alert(res.body.message || 'No se pudo eliminar el correo.'); }
+                },
                 async dismiss(id, url) {
                     this.gone[id] = true;
                     const res = await sgFetch(url, 'PATCH', { status: 'dismissed' });

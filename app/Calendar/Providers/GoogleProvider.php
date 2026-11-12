@@ -12,6 +12,7 @@ use Google\Client;
 use Google\Service\Calendar;
 use Google\Service\Calendar\Event as GoogleEvent;
 use Google\Service\Calendar\EventDateTime;
+use Google\Service\Exception;
 
 /** Google Calendar (Aminfo, Google Workspace). La conexión se hace con OAuth. */
 class GoogleProvider implements CalendarProvider
@@ -82,6 +83,17 @@ class GoogleProvider implements CalendarProvider
         $google->setEnd($this->dateTime($event->endsAt, $event->allDay));
 
         return $this->toEventData($this->service($account)->events->insert($account->calendar_ref, $google));
+    }
+
+    public function deleteEvent(CalendarAccount $account, string $remoteId): void
+    {
+        try {
+            $this->service($account)->events->delete($account->calendar_ref, $remoteId);
+        } catch (Exception $e) {
+            if (! in_array($e->getCode(), [404, 410], true)) { // ya no existía: da igual
+                throw new CalendarSyncException('Google no permitió eliminar el evento: '.$e->getMessage());
+            }
+        }
     }
 
     public function toEventData(GoogleEvent $item): EventData

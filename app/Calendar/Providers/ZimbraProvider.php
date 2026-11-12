@@ -146,6 +146,53 @@ class ZimbraProvider implements CalendarProvider
     }
 
     /**
+     * Elimina una cita: la mueve a la Papelera de Zimbra (se puede recuperar) sin enviar avisos a los invitados.
+     */
+    public function deleteEvent(CalendarAccount $account, string $remoteId): void
+    {
+        if (preg_match('/@\d{8}T\d{6}Z$/', $remoteId)) {
+            throw new CalendarSyncException('Es una repetición de un evento periódico: elimínala desde Zimbra.');
+        }
+        $appt = $this->call($account, fn (string $token) => $this->soap($account, 'GetAppointmentRequest', [
+            '_jsns' => 'urn:zimbraMail', 'uid' => $remoteId, 'sync' => '0', 'includeContent' => '0',
+        ], $token));
+        $id = $appt['appt'][0]['id'] ?? $appt['appt']['id'] ?? null;
+        if (! $id) {
+            return; // ya no existe
+        }
+        $this->itemAction($account, 'ItemActionRequest', (string) $id, 'trash');
+    }
+
+    /** Mueve un correo a la Papelera. */
+    public function trashMessage(CalendarAccount $account, string $messageId): void
+    {
+        $this->itemAction($account, 'MsgActionRequest', $messageId, 'trash');
+    }
+
+    /** Responde un correo desde la cuenta (queda en Enviados y el original se marca como respondido). */
+    public function reply(CalendarAccount $account, string $messageId, string $toEmail, ?string $toName, string $subject, string $body): void
+    {
+        $subject = preg_match('/^\s*(re|rv|fw|fwd)\s*:/i', $subject) ? $subject : 'RE: '.$subject;
+        $this->call($account, fn (string $token) => $this->soap($account, 'SendMsgRequest', [
+            '_jsns' => 'urn:zimbraMail',
+            'm' => [
+                'origid' => $messageId,
+                'rt' => 'r',
+                'e' => [array_filter(['t' => 't', 'a' => $toEmail, 'p' => $toName])],
+                'su' => ['_content' => $subject],
+                'mp' => [['ct' => 'text/plain', 'content' => ['_content' => $body]]],
+            ],
+        ], $token));
+    }
+
+    private function itemAction(CalendarAccount $account, string $method, string $id, string $op): void
+    {
+        $this->call($account, fn (string $token) => $this->soap($account, $method, [
+            '_jsns' => 'urn:zimbraMail', 'action' => ['op' => $op, 'id' => $id],
+        ], $token));
+    }
+
+    /**
      * Correos recibidos en la bandeja de entrada desde $since (los más nuevos primero).
      *
      * @return list<MailMessage>

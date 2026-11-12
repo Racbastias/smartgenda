@@ -126,6 +126,28 @@ class CalDavProvider implements CalendarProvider
             $event->description, $event->location, $event->busy);
     }
 
+    public function deleteEvent(CalendarAccount $account, string $remoteId): void
+    {
+        if (str_contains($remoteId, '@') && preg_match('/@\d{8}T\d{6}Z$/', $remoteId)) {
+            throw new CalendarSyncException('Es una repetición de un evento periódico: elimínala desde tu calendario de origen.');
+        }
+        $uid = htmlspecialchars($remoteId, ENT_XML1);
+        $xpath = $this->xml($this->request($account, 'REPORT', $account->calendar_ref, 1,
+            '<c:calendar-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><d:prop><d:getetag/></d:prop>'
+            .'<c:filter><c:comp-filter name="VCALENDAR"><c:comp-filter name="VEVENT">'
+            ."<c:prop-filter name=\"UID\"><c:text-match collation=\"i;octet\">{$uid}</c:text-match></c:prop-filter>"
+            .'</c:comp-filter></c:comp-filter></c:filter></c:calendar-query>'));
+
+        $href = trim((string) $xpath->query('//d:response/d:href')->item(0)?->textContent);
+        if ($href === '') {
+            return; // ya no está en el servidor
+        }
+        $response = $this->client($account)->send('DELETE', $this->absolute($account->calendar_ref, $href));
+        if (! $response->successful() && $response->status() !== 404) {
+            throw new CalendarSyncException("El servidor no permitió eliminar el evento (HTTP {$response->status()}).");
+        }
+    }
+
     /** @return list<EventData> */
     public function parseCalendar(string $ics, CarbonImmutable $from, CarbonImmutable $to): array
     {

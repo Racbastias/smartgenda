@@ -158,7 +158,9 @@ textarea.input { min-height: 80px; resize: vertical; }
     background: color-mix(in srgb, var(--cal-color) 12%, white); border-left: 3px solid var(--cal-color);
     color: var(--text); border-radius: 6px; font-size: 12px; line-height: 1.3; overflow: hidden;
 }
-.tl-event { position: absolute; padding: 4px 8px; z-index: 2; cursor: default; }
+.tl-event { position: absolute; padding: 4px 8px; z-index: 2; cursor: pointer; }
+.chip-ev { cursor: pointer; }
+#calendar .fc-event { cursor: pointer; }
 .tl-event strong { font-weight: 600; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chip-ev { padding: 3px 8px; }
 

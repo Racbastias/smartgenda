@@ -78,6 +78,21 @@ class CalDavProviderTest extends TestCase
             && str_contains($r->body(), 'DTSTART:20261113T160000Z'));
     }
 
+    public function test_deletes_event_by_uid(): void
+    {
+        $account = CalendarAccount::factory()->make();
+        Http::fake(function (Request $r) {
+            return $r->method() === 'REPORT'
+                ? Http::response('<?xml version="1.0"?><d:multistatus xmlns:d="DAV:"><d:response><d:href>/cal/otro-nombre.ics</d:href></d:response></d:multistatus>', 207)
+                : Http::response('', 204);
+        });
+
+        (new CalDavProvider)->deleteEvent($account, 'abc-123');
+
+        Http::assertSent(fn (Request $r) => $r->method() === 'REPORT' && str_contains($r->body(), '>abc-123</c:text-match>'));
+        Http::assertSent(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), '/cal/otro-nombre.ics'));
+    }
+
     public function test_bad_credentials_give_clear_error(): void
     {
         Http::fake(['*' => Http::response('', 401)]);
