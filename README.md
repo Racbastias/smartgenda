@@ -26,12 +26,14 @@ Smartgenda inicia sesión en la API de Zimbra con la contraseña y el código de
 
 ## Resumen de correos
 
-En **Mis agendas**, una cuenta de Zimbra tiene el botón **Resumir correo**. Al activarlo, cada 30 minutos Smartgenda lee los correos nuevos de la bandeja de entrada (la primera vez, los de los últimos 3 días) y anota en **Pendientes** lo que piden. Cada acción se marca como hecha, se descarta o se agenda (abre el formulario de evento con el título y la fecha). El cuerpo del correo no se guarda.
+En **Mis agendas**, una cuenta de Zimbra tiene el botón **Resumir correo**. Al activarlo, cada 2 minutos Smartgenda lee los correos nuevos de la bandeja de entrada (la primera vez, los de los últimos 3 días) y anota en **Pendientes** lo que piden. Cada acción se marca como hecha, se descarta o se agenda (abre el formulario de evento con el título y la fecha). El cuerpo del correo no se guarda.
 
 Hay dos modos:
 
-- **Sin costo (por defecto)**: reglas simples (`RuleSummarizer`). Toma los correos dirigidos a ti (no en copia) que no has respondido, detecta pedidos y preguntas ("¿podrías…?", "favor enviar", "necesito", "urgente") y fechas ("el viernes", "15/11", "mañana"). Muestra el inicio del correo como resumen y deja como prioridad baja los boletines y las notificaciones automáticas.
+- **Sin costo (por defecto)**: reglas simples (`RuleSummarizer`). Ignora boletines y publicidad (encabezados `List-Unsubscribe`/`Precedence: bulk` y textos como "ver este correo en tu navegador" o "darse de baja"). Toma los correos dirigidos a ti (no en copia) que no has respondido, detecta pedidos y preguntas ("¿podrías…?", "favor enviar", "necesito", "urgente") y fechas ("el viernes", "15/11", "mañana"). Muestra el inicio del correo como resumen y deja como prioridad baja los boletines y las notificaciones automáticas.
 - **Con IA**: si existe `ANTHROPIC_API_KEY` (console.anthropic.com → API Keys, como secreto de GitHub; el deploy la escribe en el `.env`), los correos se envían a la API de Claude, que escribe el resumen y detecta compromisos con más precisión. Es pago por uso. El modelo se cambia con `ANTHROPIC_MODEL` (por defecto `claude-opus-5-5`). Si el modelo declina un correo por política, la API reintenta sola con el modelo alternativo por defecto.
+
+Cada pendiente se puede descartar, o se puede ocultar para siempre todo lo que llegue de ese remitente o de su dominio. La lista de remitentes ocultos está en **Integraciones**, donde se puede deshacer. El correo no se borra del buzón.
 
 ## Desarrollo local
 
@@ -64,7 +66,7 @@ Requiere un plan con SSH (Business sirve) y PHP 8.3 en hPanel → Avanzado → C
 4. Abrir el sitio: la primera pantalla pide crear el usuario administrador.
 5. hPanel → Avanzado → Cron Jobs, cada minuto:
    `cd ~/domains/<tu-sitio>/smartgenda && php artisan schedule:run`
-   (sincroniza las agendas cada 10 minutos y resume el correo cada 30).
+   (sincroniza las agendas y revisa el correo cada 2 minutos; las pantallas Hoy y Agenda se refrescan solas cada 2 minutos).
 
 Desde ahí, cada push a `main` con tests en verde se publica solo. El `.env` y la base de datos del servidor no se tocan en los deploys siguientes. Para usar MySQL en vez de SQLite, editar `DB_*` en el `.env` del servidor.
 

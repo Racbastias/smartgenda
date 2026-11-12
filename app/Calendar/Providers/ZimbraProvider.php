@@ -162,6 +162,8 @@ class ZimbraProvider implements CalendarProvider
             'html' => '0',      // texto plano cuando existe
             'max' => 6000,      // bytes por cuerpo
             'needExp' => '1',
+            // Encabezados que delatan envíos masivos (boletines, publicidad)
+            'header' => [['n' => 'List-Unsubscribe'], ['n' => 'List-Id'], ['n' => 'Precedence']],
         ], $token));
 
         $messages = [];
@@ -183,10 +185,23 @@ class ZimbraProvider implements CalendarProvider
                 body: $body,
                 replied: str_contains((string) ($m['f'] ?? ''), 'r'),
                 directlyAddressed: $this->isAddressedTo($m['e'] ?? [], (string) $account->username),
+                bulk: $this->isBulk($m),
             );
         }
 
         return $messages;
+    }
+
+    /** Encabezados de lista o Precedence: bulk/list. Zimbra los entrega en _attrs (o como lista de header). */
+    private function isBulk(array $m): bool
+    {
+        $headers = array_change_key_case($m['_attrs'] ?? [], CASE_LOWER);
+        foreach ($m['header'] ?? [] as $h) {
+            $headers[mb_strtolower((string) ($h['n'] ?? ''))] = $this->text($h['_content'] ?? $h);
+        }
+
+        return filled($headers['list-unsubscribe'] ?? null) || filled($headers['list-id'] ?? null)
+            || in_array(mb_strtolower(trim((string) ($headers['precedence'] ?? ''))), ['bulk', 'list', 'junk'], true);
     }
 
     /** true si la cuenta está en "Para", o si no se sabe (sin destinatarios visibles, ej. listas). */

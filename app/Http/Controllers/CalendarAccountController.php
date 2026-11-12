@@ -22,6 +22,7 @@ class CalendarAccountController extends Controller
         return view('accounts.index', [
             'accounts' => $request->user()->calendarAccounts()->orderBy('name')->get(),
             'googleConfigured' => filled(config('services.google.client_id')),
+            'blocked' => $request->user()->blockedSenders()->orderBy('pattern')->get(),
         ]);
     }
 

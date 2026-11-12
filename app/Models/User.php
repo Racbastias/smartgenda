@@ -39,6 +39,12 @@ class User extends Authenticatable
         return $this->hasManyThrough(Event::class, CalendarAccount::class);
     }
 
+    /** @return HasMany<BlockedSender, $this> */
+    public function blockedSenders(): HasMany
+    {
+        return $this->hasMany(BlockedSender::class);
+    }
+
     /** @return HasManyThrough<EmailItem, CalendarAccount, $this> */
     public function emailItems(): HasManyThrough
     {

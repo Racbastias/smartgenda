@@ -45,7 +45,7 @@
 
                 @forelse ($tasks as $task)
                     <article class="task" :class="done[{{ $task->id }}] && 'is-done'"
-                             x-show="visible(@js($task->priority), @js($task->account->provider))">
+                             x-show="!gone[{{ $task->id }}] && visible(@js($task->priority), @js($task->account->provider))">
                         <button type="button" class="task-check" x-on:click="toggle({{ $task->id }}, @js(route('inbox.update', $task)))"
                                 :aria-pressed="!!done[{{ $task->id }}]" aria-label="Marcar como hecho"><x-icon name="check" stroke-width="3"/></button>
                         <div class="grow">
@@ -64,6 +64,17 @@
                             @if ($url = $task->webUrl())
                                 <a class="btn btn-sm btn-ghost" href="{{ $url }}" target="_blank" rel="noopener">Ver correo</a>
                             @endif
+                            <div class="menu" x-data="{ open: false }" x-on:click.outside="open = false" x-on:keydown.escape="open = false">
+                                <button type="button" class="btn btn-sm btn-ghost" x-on:click="open = !open" :aria-expanded="open" aria-label="Más opciones" title="Descartar u ocultar">⋯</button>
+                                <div class="menu-list" x-show="open" x-cloak x-transition.opacity>
+                                    <button type="button" x-on:click="dismiss({{ $task->id }}, @js(route('inbox.update', $task)))">Descartar este pendiente</button>
+                                    @if ($task->from_email)
+                                        @php($domain = '@'.substr(strrchr(mb_strtolower($task->from_email), '@') ?: '@', 1))
+                                        <button type="button" x-on:click="block(@js(route('inbox.block', $task)), 'sender')">No mostrar más de {{ mb_strtolower($task->from_email) }}</button>
+                                        @if ($domain !== '@')<button type="button" x-on:click="block(@js(route('inbox.block', $task)), 'domain')">No mostrar más de todo {{ $domain }}</button>@endif
+                                    @endif
+                                </div>
+                            </div>
                         </div>
                     </article>
                 @empty
@@ -122,8 +133,14 @@
     <script>
         document.addEventListener('alpine:init', () => {
             Alpine.data('todayPage', ({ startHour, isToday, day, counts }) => ({
-                tab: 'all', pane: 'tasks', done: {}, nowTop: null,
+                tab: sessionStorage.getItem('sg.tab') || 'all', pane: sessionStorage.getItem('sg.pane') || 'tasks', done: {}, gone: {}, nowTop: null,
                 init() {
+                    this.$watch('tab', v => sessionStorage.setItem('sg.tab', v));
+                    this.$watch('pane', v => sessionStorage.setItem('sg.pane', v));
+                    // Se actualiza sola cada 2 minutos (si la pestaña está visible y no hay un formulario abierto)
+                    setInterval(() => {
+                        if (document.visibilityState === 'visible' && !window.sgModalOpen && !document.querySelector('.menu-list:not([style*="none"])')) location.reload();
+                    }, 120000);
                     const tick = () => {
                         const n = new Date();
                         const minutes = (n.getHours() - startHour) * 60 + n.getMinutes();
@@ -135,6 +152,15 @@
                     return this.tab === 'all' || (this.tab === 'alta' && priority === 'alta') || this.tab === provider;
                 },
                 get anyVisible() { return counts[this.tab] > 0; },
+                async dismiss(id, url) {
+                    this.gone[id] = true;
+                    const res = await sgFetch(url, 'PATCH', { status: 'dismissed' });
+                    if (!res.ok) this.gone[id] = false;
+                },
+                async block(url, scope) {
+                    const res = await sgFetch(url, 'POST', { scope });
+                    if (res.ok) location.reload();
+                },
                 async toggle(id, url) {
                     const now = !this.done[id];
                     this.done[id] = now;
