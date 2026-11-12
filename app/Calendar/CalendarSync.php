@@ -57,4 +57,12 @@ class CalendarSync
 
         return $account->events()->updateOrCreate(['remote_id' => $created->remoteId], $created->toAttributes());
     }
+
+    /** Elimina el evento en su agenda original y en la copia local. */
+    public function delete(Event $event): void
+    {
+        $account = $event->calendarAccount;
+        $this->providers->for($account)->deleteEvent($account, $event->remote_id);
+        $event->delete();
+    }
 }

@@ -21,7 +21,7 @@
     {{-- Alpine.js 3.14.9 (MIT), incluido en el repo para no depender de un CDN --}}
     <script defer src="{{ asset('vendor/alpine/alpine-3.14.9.min.js') }}"></script>
 </head>
-<body data-store-url="{{ route('agenda.store') }}">
+<body data-store-url="{{ route('agenda.store') }}" data-events-url="{{ url('/agenda/eventos') }}">
 <div class="shell">
     <aside class="sidebar">
         <div class="brand"><span class="brand-mark">S</span> Smartgenda</div>
@@ -66,6 +66,7 @@
     <button class="fab" type="button" onclick="sgNewEvent()" aria-label="Nuevo evento"><x-icon name="plus"/></button>
     <x-event-modal :accounts="$eventAccounts"/>
 @endif
+<x-event-detail/>
 {{ $scripts ?? '' }}
 </body>
 </html>

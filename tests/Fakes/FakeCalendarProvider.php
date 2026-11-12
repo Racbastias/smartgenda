@@ -33,4 +33,12 @@ class FakeCalendarProvider implements CalendarProvider
 
         return $event;
     }
+
+    /** @var list<string> */
+    public array $deleted = [];
+
+    public function deleteEvent(CalendarAccount $account, string $remoteId): void
+    {
+        $this->deleted[] = $remoteId;
+    }
 }

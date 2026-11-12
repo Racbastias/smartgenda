@@ -59,6 +59,21 @@ class AgendaController extends Controller
         ])->values());
     }
 
+    public function destroy(Request $request, Event $event, CalendarSync $sync): JsonResponse
+    {
+        abort_unless($event->calendarAccount?->user_id === $request->user()->id, 404);
+
+        try {
+            $sync->delete($event);
+        } catch (Throwable $e) {
+            report($e);
+
+            return response()->json(['message' => "No se pudo eliminar: {$e->getMessage()}"], 502);
+        }
+
+        return response()->json(['deleted' => true]);
+    }
+
     public function store(Request $request, CalendarSync $sync): JsonResponse
     {
         $data = $request->validate([

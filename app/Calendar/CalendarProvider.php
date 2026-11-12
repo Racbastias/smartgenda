@@ -15,4 +15,7 @@ interface CalendarProvider
 
     /** Crea el evento en la agenda remota y lo devuelve con su id remoto. */
     public function createEvent(CalendarAccount $account, EventData $event): EventData;
+
+    /** Elimina el evento de la agenda remota (remoteId tal como lo entregó fetchEvents). */
+    public function deleteEvent(CalendarAccount $account, string $remoteId): void;
 }

@@ -20,7 +20,25 @@
     /** Abre el modal de nuevo evento. start/end: Date; title, notes: texto; allDay: bool. */
     window.sgNewEvent = (detail = {}) => window.dispatchEvent(new CustomEvent('sg:new-event', { detail }));
 
+    /** Muestra el detalle de un evento: { id, title, when, agenda, color, location, description }. */
+    window.sgShowEvent = (detail) => window.dispatchEvent(new CustomEvent('sg:show-event', { detail }));
+
     document.addEventListener('alpine:init', () => {
+        Alpine.data('eventDetail', () => ({
+            visible: false, busy: false, error: '', ev: {},
+            open(ev) { this.ev = ev; this.error = ''; this.visible = true; window.sgModalOpen = true; },
+            close() { this.visible = false; window.sgModalOpen = false; },
+            async remove() {
+                if (!confirm(`¿Eliminar «${this.ev.title}»? También se borra de ${this.ev.agenda}.`)) return;
+                this.busy = true; this.error = '';
+                const res = await sgFetch(`${document.body.dataset.eventsUrl}/${this.ev.id}`, 'DELETE');
+                this.busy = false;
+                if (!res.ok) { this.error = res.body.message || 'No se pudo eliminar el evento.'; return; }
+                this.close();
+                window.dispatchEvent(new CustomEvent('sg:event-saved'));
+            },
+        }));
+
         Alpine.data('eventModal', defaultAccount => ({
             visible: false, saving: false, error: '', duration: 60,
             form: {},

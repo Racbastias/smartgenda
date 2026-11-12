@@ -35,6 +35,20 @@ class AgendaTest extends TestCase
         });
     }
 
+    public function test_events_can_be_deleted_only_by_their_owner(): void
+    {
+        $account = CalendarAccount::factory()->create();
+        $event = $account->events()->create(['remote_id' => 'uid-1', 'title' => 'Borrar', 'all_day' => false,
+            'starts_at' => now(), 'ends_at' => now()->addHour()]);
+
+        $this->actingAs(User::factory()->create())->deleteJson("/agenda/eventos/{$event->id}")->assertNotFound();
+        $this->assertSame([], $this->fake->deleted);
+
+        $this->actingAs($account->user)->deleteJson("/agenda/eventos/{$event->id}")->assertOk();
+        $this->assertSame(['uid-1'], $this->fake->deleted);
+        $this->assertModelMissing($event);
+    }
+
     public function test_guests_are_sent_to_login(): void
     {
         $this->get('/')->assertRedirect('/login');

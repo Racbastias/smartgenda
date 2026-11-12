@@ -23,10 +23,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/agenda', [AgendaController::class, 'index'])->name('agenda');
     Route::get('/agenda/eventos', [AgendaController::class, 'events'])->name('agenda.events');
     Route::post('/agenda/eventos', [AgendaController::class, 'store'])->name('agenda.store');
+    Route::delete('/agenda/eventos/{event}', [AgendaController::class, 'destroy'])->name('agenda.destroy');
 
     Route::get('/pendientes', [InboxController::class, 'index'])->name('inbox.index');
     Route::post('/pendientes/revisar', [InboxController::class, 'refresh'])->name('inbox.refresh')->middleware('throttle:4,1');
     Route::patch('/pendientes/{item}', [InboxController::class, 'update'])->name('inbox.update');
+    Route::post('/pendientes/{item}/responder', [InboxController::class, 'reply'])->name('inbox.reply')->middleware('throttle:20,1');
+    Route::post('/pendientes/{item}/papelera', [InboxController::class, 'trash'])->name('inbox.trash');
     Route::post('/pendientes/{item}/bloquear', [InboxController::class, 'block'])->name('inbox.block');
     Route::delete('/remitentes-bloqueados/{blocked}', [InboxController::class, 'unblock'])->name('inbox.unblock');
 

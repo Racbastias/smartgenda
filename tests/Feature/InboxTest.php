@@ -195,6 +195,42 @@ class InboxTest extends TestCase
         $this->actingAs($intruder)->delete("/remitentes-bloqueados/{$b->id}")->assertNotFound();
     }
 
+    public function test_reply_and_trash_go_through_zimbra(): void
+    {
+        Http::fake([self::SERVER.'/service/soap/*' => Http::response(['Body' => ['SendMsgResponse' => ['m' => [['id' => '99']]]]])]);
+        $account = $this->account();
+        $item = $account->emailItems()->create(['remote_id' => '257', 'from_email' => 'juan@cliente.cl', 'from_name' => 'Juan',
+            'subject' => 'Cotización', 'received_at' => now(), 'summary' => 'x', 'needs_reply' => true, 'actions' => []]);
+
+        $this->actingAs($account->user)->postJson("/pendientes/{$item->id}/responder", ['body' => 'Te la envío hoy.'])->assertOk();
+        Http::assertSent(function (Request $r) {
+            $m = $r->data()['Body']['SendMsgRequest']['m'] ?? null;
+
+            return $m && $m['origid'] === '257' && $m['rt'] === 'r' && $m['e'][0]['a'] === 'juan@cliente.cl'
+                && $m['su']['_content'] === 'RE: Cotización' && $m['mp'][0]['content']['_content'] === 'Te la envío hoy.';
+        });
+        $this->assertSame('done', $item->fresh()->status);
+
+        $this->actingAs($account->user)->postJson("/pendientes/{$item->id}/papelera")->assertOk();
+        Http::assertSent(fn (Request $r) => ($r->data()['Body']['MsgActionRequest']['action'] ?? null) === ['op' => 'trash', 'id' => '257']);
+        $this->assertSame('dismissed', $item->fresh()->status);
+
+        $this->actingAs(User::factory()->create())->postJson("/pendientes/{$item->id}/responder", ['body' => 'x'])->assertNotFound();
+    }
+
+    public function test_zimbra_deletes_appointment_by_uid_into_trash(): void
+    {
+        Http::fake([
+            self::SERVER.'/service/soap/GetAppointmentRequest' => Http::response(['Body' => ['GetAppointmentResponse' => ['appt' => [['id' => '812', 'uid' => 'u-1']]]]]),
+            self::SERVER.'/service/soap/ItemActionRequest' => Http::response(['Body' => ['ItemActionResponse' => []]]),
+        ]);
+
+        app(ZimbraProvider::class)->deleteEvent($this->account(), 'u-1');
+
+        Http::assertSent(fn (Request $r) => ($r->data()['Body']['GetAppointmentRequest']['uid'] ?? null) === 'u-1');
+        Http::assertSent(fn (Request $r) => ($r->data()['Body']['ItemActionRequest']['action'] ?? null) === ['op' => 'trash', 'id' => '812']);
+    }
+
     public function test_claude_output_is_validated(): void
     {
         $messages = [new MailMessage('7', null, null, null, 'x', CarbonImmutable::now(), 'y')];
