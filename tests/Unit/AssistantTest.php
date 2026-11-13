@@ -24,14 +24,11 @@ class AssistantTest extends TestCase
             ['accion' => 3, 'alta' => 0, 'seguimiento' => 1, 'leer' => 2], ['title' => 'Comité', 'time' => '09:00'], false);
         $this->assertSame('coffee', $morning['icon']);
         $this->assertSame('Buenos días, Rubén', $morning['hello']);
-        $this->assertStringContainsString('Mientras sale el café: 3 correos esperan tu acción.', $morning['line']);
-        $this->assertStringContainsString('1 respuesta por perseguir', $morning['line']);
-        $this->assertStringContainsString('Comité a las 09:00', $morning['line']);
-        $this->assertStringContainsString('cada hora', $morning['line']);
+        $this->assertSame('Mientras sale el café, esto es lo que tienes. Fuera de horario reviso el correo cada hora.', $morning['line']);
 
         $afternoon = Assistant::greeting('Rubén', CarbonImmutable::parse('2026-11-12 15:00'),
             ['accion' => 2, 'alta' => 1, 'seguimiento' => 0, 'leer' => 0], null, true);
         $this->assertSame('Buenas tardes, Rubén', $afternoon['hello']);
-        $this->assertSame('Hay 1 tema con prioridad alta: parte por ahí.', $afternoon['line']);
+        $this->assertSame('Hay temas con prioridad alta: parte por ahí.', $afternoon['line']);
     }
 }

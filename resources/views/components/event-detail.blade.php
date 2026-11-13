@@ -8,6 +8,7 @@
                 <button type="button" class="btn btn-ghost btn-sm" x-on:click="close()" aria-label="Cerrar"><x-icon name="x"/></button>
             </div>
             <div class="modal-body">
+                <a class="btn btn-primary" x-show="ev.join" x-cloak :href="ev.join?.url" target="_blank" rel="noopener" style="justify-self:start"><x-icon name="video"/><span x-text="ev.join ? `Unirse por ${ev.join.label}` : ''"></span></a>
                 <p class="tnum" x-text="ev.when"></p>
                 <p class="muted" x-text="ev.agenda"></p>
                 <p x-show="ev.location" x-text="ev.location"></p>

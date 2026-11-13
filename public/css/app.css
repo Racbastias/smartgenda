@@ -599,3 +599,43 @@ html { background: var(--bg); }
 .dl-event .dl-body { background: color-mix(in srgb, var(--cal-color) 12%, white); border-left: 3px solid var(--cal-color); }
 @media (max-width: 1100px) { .today { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 767px) { .widget:not(.widget-hero) .widget-icon { display: none; } .widget:not(.widget-hero) { gap: 8px; } }
+
+/* Encabezado: próxima reunión y pendientes como tarjetas */
+.brief { display: flex; gap: 14px; align-items: stretch; flex-wrap: wrap; margin-top: 22px; }
+.brief-meet { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 14px 16px 14px 18px; border-radius: 16px;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); box-shadow: inset 4px 0 0 var(--cal-color, var(--orange)); min-width: min(100%, 420px); }
+.brief-meet.is-free { flex-direction: column; align-items: flex-start; gap: 4px; box-shadow: inset 4px 0 0 #4ADE80; }
+.brief-meet-main { display: grid; grid-template-columns: auto 1fr; column-gap: 14px; row-gap: 2px; align-items: baseline; text-align: left; background: none; border: 0; padding: 0; color: #fff; font: inherit; cursor: pointer; min-width: 0; }
+.brief-meet-main:hover .brief-title { text-decoration: underline; text-underline-offset: 3px; }
+.brief-eyebrow { grid-column: 1 / -1; display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-muted); }
+.brief-eyebrow svg { width: 13px; height: 13px; color: var(--orange); }
+.brief-time { grid-row: 2 / span 2; font: 800 34px/1 var(--display); letter-spacing: -.02em; color: var(--orange); }
+.brief-time small { font-size: 15px; color: var(--ink-muted); font-weight: 600; margin-left: 2px; }
+.brief-title { font: 700 18px/1.25 var(--display); color: #fff; overflow-wrap: anywhere; }
+.brief-meta { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; color: #C9CED6; }
+.brief-meta svg { width: 13px; height: 13px; }
+.brief-meta .dot { background: var(--cal-color); }
+.hero .brief-join { min-height: 44px; }
+.brief-chips { display: flex; flex-wrap: wrap; gap: 8px; align-content: center; }
+.brief-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.05); color: #E5E7EB; font: 500 14px var(--font); cursor: pointer; }
+.brief-chip:hover { background: rgba(255,255,255,.1); }
+.brief-chip svg { width: 16px; height: 16px; flex: none; }
+.brief-chip b { font: 800 18px var(--display); color: #fff; }
+.brief-chip .go { width: 14px; height: 14px; opacity: .5; }
+.brief-chip.is-amber > svg:first-child { color: var(--amber); }
+.brief-chip.is-red > svg:first-child { color: #F08A73; }
+.brief-chip.is-purple > svg:first-child { color: #C4B5FD; }
+@media (max-width: 767px) {
+    .brief { margin-top: 14px; gap: 10px; }
+    .brief-meet { min-width: 0; width: 100%; padding: 12px 14px; }
+    .brief-time { font-size: 28px; }
+    .brief-title { font-size: 16px; }
+    .brief-join { width: 100%; }
+    .brief-chips { width: 100%; }
+    .brief-chip { flex: 1 1 auto; }
+    .hero .line { -webkit-line-clamp: 2; }
+}
+.dl-cell { min-width: 0; }
+.dl-join { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; margin: -2px 0 10px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 13px; font-weight: 600; text-decoration: none; }
+.dl-join:hover { background: #222833; }
+.dl-join svg { width: 15px; height: 15px; color: var(--orange); }

@@ -52,6 +52,7 @@ class TodayController extends Controller
             'plan' => $plan,
             'tasks' => $tasks,
             'doneToday' => $doneToday,
+            'next' => $isToday ? $next : null,
             'mailAccounts' => $user->calendarAccounts()->where('mail_enabled', true)->count(),
         ]);
     }

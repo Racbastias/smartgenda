@@ -121,7 +121,10 @@ class GoogleProvider implements CalendarProvider, MailProvider
             startsAt: $parse($item->getStart()),
             endsAt: $parse($item->getEnd()),
             allDay: $allDay,
-            description: $item->getDescription(),
+            // El enlace de Google Meet viene aparte: se agrega a la descripción para poder unirse desde Smartgenda
+            description: ($meet = $item->getHangoutLink()) && ! str_contains((string) $item->getDescription(), $meet)
+                ? trim($item->getDescription()."\n\nGoogle Meet: ".$meet)
+                : $item->getDescription(),
             location: $item->getLocation(),
             busy: $item->getTransparency() !== 'transparent',
         );

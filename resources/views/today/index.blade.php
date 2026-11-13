@@ -28,6 +28,37 @@
                     <button class="btn btn-primary hide-mobile" type="button" x-on:click="newAt()"><x-icon name="plus"/> Nuevo evento</button>
                 </div>
             </div>
+            <div class="brief">
+                @if ($next)
+                    @php($ev = $next['event'])
+                    @php($join = $ev->meetingLink())
+                    @php($mins = (int) now($tz)->diffInMinutes($next['start']))
+                    <div class="brief-meet" style="--cal-color: {{ $ev->calendarAccount->color }}">
+                        <button type="button" class="brief-meet-main" x-on:click="sgShowEvent(@js($ev->detail($tz)))" title="Ver detalle de la reunión">
+                            <span class="brief-eyebrow"><x-icon name="calendar"/>Próxima reunión · en {{ $mins >= 60 ? intdiv($mins, 60).' h'.($mins % 60 ? ' '.($mins % 60).' min' : '') : $mins.' min' }}</span>
+                            <span class="brief-time tnum">{{ $next['start']->format('H:i') }}<small>–{{ $next['end']->format('H:i') }}</small></span>
+                            <span class="brief-title">{{ $ev->title }}</span>
+                            <span class="brief-meta"><span class="dot"></span>{{ $ev->calendarAccount->name }}@if ($ev->location && ! str_starts_with($ev->location, 'http')) <x-icon name="map-pin"/>{{ $ev->location }}@endif</span>
+                        </button>
+                        @if ($join)
+                            <a class="btn btn-primary brief-join" href="{{ $join['url'] }}" target="_blank" rel="noopener"><x-icon name="video"/>Unirse por {{ $join['label'] }}</a>
+                        @endif
+                    </div>
+                @elseif ($isToday)
+                    <div class="brief-meet is-free">
+                        <span class="brief-eyebrow"><x-icon name="calendar"/>Agenda</span>
+                        <span class="brief-title">Sin más reuniones hoy</span>
+                    </div>
+                @endif
+                <div class="brief-chips">
+                    <button type="button" class="brief-chip is-amber" x-show="count('accion')" x-on:click="tab = 'accion'; filter = 'all'; pane = 'tasks'"><x-icon name="zap"/><b x-text="count('accion')"></b><span x-text="count('accion') === 1 ? 'correo espera tu acción' : 'correos esperan tu acción'"></span><x-icon name="arrow-right" class="go"/></button>
+                    <button type="button" class="brief-chip is-red" x-show="altaCount" x-cloak x-on:click="tab = 'accion'; filter = 'alta'; pane = 'tasks'"><x-icon name="flame"/><b x-text="altaCount"></b><span>con prioridad alta</span><x-icon name="arrow-right" class="go"/></button>
+                    <button type="button" class="brief-chip is-purple" x-show="count('seguimiento')" x-cloak x-on:click="tab = 'seguimiento'; filter = 'all'; pane = 'tasks'"><x-icon name="hourglass"/><b x-text="count('seguimiento')"></b><span x-text="count('seguimiento') === 1 ? 'respuesta por perseguir' : 'respuestas por perseguir'"></span><x-icon name="arrow-right" class="go"/></button>
+                    @if ($plan['stats']['conflicts'])
+                        <button type="button" class="brief-chip is-red" x-on:click="pane = 'timeline'; document.querySelector('.dl-event.is-conflict')?.scrollIntoView({ behavior: 'smooth', block: 'center' })"><x-icon name="flame"/><b>{{ $plan['stats']['conflicts'] }}</b><span>reuniones chocan entre agendas</span><x-icon name="arrow-right" class="go"/></button>
+                    @endif
+                </div>
+            </div>
         </header>
 
         <div class="segmented show-mobile" style="margin-bottom:12px" role="group" aria-label="Vista">
