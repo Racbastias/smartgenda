@@ -18,23 +18,51 @@
 @endphp
 <x-app-layout title="Hoy">
     <div x-data="todayPage({ startHour: {{ $startHour }}, isToday: @js($isToday), day: @js($day->toDateString()), items: @js($items), workHours: @js($workHours) })" x-on:sg:event-saved.window="location.reload()">
-        <div class="page-head">
-            <div class="hello">
-                <span @class(['hello-icon', 'is-sun' => $greeting['icon'] === 'sun', 'is-moon' => $greeting['icon'] === 'moon'])><x-icon :name="$isToday ? $greeting['icon'] : 'calendar'"/></span>
+        <header class="hero">
+            <div class="hero-top">
                 <div style="min-width:0">
-                    <h1>{{ $isToday ? $greeting['hello'] : ucfirst($day->locale('es')->isoFormat('dddd D [de] MMMM')) }}</h1>
-                    <p class="line">
-                        @if ($isToday)<span class="tnum">{{ ucfirst($day->locale('es')->isoFormat('dddd D [de] MMMM')) }}</span> · {{ $greeting['line'] }}@else Así viene ese día en tu agenda.@endif
-                    </p>
+                    <div class="eyebrow"><span class="hide-mobile">Tu asistente ·</span> <span class="tnum">{{ $day->locale('es')->isoFormat('dddd D [de] MMMM') }}</span></div>
+                    <h1>{{ $isToday ? $greeting['hello'] : ucfirst($day->locale('es')->isoFormat('dddd D [de] MMMM')) }}<span class="stop">.</span></h1>
+                    <p class="line">{{ $isToday ? $greeting['line'] : 'Así viene ese día en tu agenda.' }}</p>
+                </div>
+                <div class="row hero-actions">
+                    <a class="btn" href="{{ route('today', ['dia' => $day->subDay()->toDateString()]) }}" aria-label="Día anterior">‹</a>
+                    @unless ($isToday)<a class="btn" href="{{ route('today') }}">Hoy</a>@endunless
+                    <a class="btn" href="{{ route('today', ['dia' => $day->addDay()->toDateString()]) }}" aria-label="Día siguiente">›</a>
+                    @if ($mailAccounts)
+                        <form method="post" action="{{ route('inbox.refresh') }}" class="hide-mobile">@csrf<button class="btn" title="Revisar correo ahora"><x-icon name="refresh"/> Revisar correo</button></form>
+                    @endif
+                    <button class="btn btn-primary hide-mobile" type="button" x-on:click="newAt()"><x-icon name="plus"/> Nuevo evento</button>
                 </div>
             </div>
-            <div class="row">
-                <a class="btn btn-sm" href="{{ route('today', ['dia' => $day->subDay()->toDateString()]) }}" aria-label="Día anterior">‹</a>
-                @unless ($isToday)<a class="btn btn-sm" href="{{ route('today') }}">Hoy</a>@endunless
-                <a class="btn btn-sm" href="{{ route('today', ['dia' => $day->addDay()->toDateString()]) }}" aria-label="Día siguiente">›</a>
-                <button class="btn btn-primary hide-mobile" type="button" x-on:click="newAt()"><x-icon name="plus"/> Nuevo evento</button>
+            <div class="stats">
+                <button type="button" class="stat" x-on:click="tab = 'accion'; filter = 'all'; pane = 'tasks'">
+                    <div class="stat-label">Tu acción</div>
+                    <div class="stat-value" :class="count('accion') && 'is-amber'"><span class="mark" :class="count('accion') ? 'mark-tri' : 'mark-dot'" :style="!count('accion') && 'background:#4ADE80'"></span><span x-text="count('accion')">{{ $stats['accion'] }}</span></div>
+                </button>
+                <button type="button" class="stat" x-on:click="tab = 'accion'; filter = 'alta'; pane = 'tasks'">
+                    <div class="stat-label">Prioridad alta</div>
+                    <div class="stat-value" :class="altaCount && 'is-red'"><span class="mark mark-dot" :style="`background:${altaCount ? '#E5533A' : '#4ADE80'}`"></span><span x-text="altaCount">{{ $stats['alta'] }}</span></div>
+                </button>
+                <button type="button" class="stat" x-on:click="tab = 'seguimiento'; filter = 'all'; pane = 'tasks'">
+                    <div class="stat-label">En seguimiento</div>
+                    <div class="stat-value" :class="count('seguimiento') && 'is-purple'"><x-icon name="hourglass" style="width:26px;height:26px;color:#A78BFA"/><span x-text="count('seguimiento')">{{ $stats['seguimiento'] }}</span></div>
+                </button>
+                <button type="button" class="stat" x-on:click="pane = 'timeline'">
+                    <div class="stat-label">{{ $isToday ? 'Próxima reunión' : 'Reuniones del día' }}</div>
+                    @if ($isToday && $nextEvent)
+                        <div class="stat-value is-small tnum">{{ $nextEvent->starts_at->setTimezone($tz)->format('H:i') }}</div>
+                        <div class="stat-sub">{{ $nextEvent->title }} · {{ $nextEvent->calendarAccount->name }}</div>
+                    @elseif ($isToday)
+                        <div class="stat-value is-small">Libre</div>
+                        <div class="stat-sub">Sin más reuniones hoy</div>
+                    @else
+                        <div class="stat-value">{{ count($timed) }}</div>
+                        <div class="stat-sub">{{ count($timed) === 1 ? 'reunión agendada' : 'reuniones agendadas' }}</div>
+                    @endif
+                </button>
             </div>
-        </div>
+        </header>
 
         <div class="segmented show-mobile" style="margin-bottom:12px" role="group" aria-label="Vista">
             <button type="button" :aria-pressed="pane === 'tasks'" x-on:click="pane = 'tasks'">Pendientes <span class="muted" x-text="count('accion')"></span></button>
@@ -43,14 +71,13 @@
 
         <div class="today">
             {{-- Pendientes del correo --}}
-            <section class="card" data-pane="tasks" :class="pane === 'tasks' && 'is-active'" aria-label="Pendientes">
-                <div class="card-head">
+            <section class="inbox" data-pane="tasks" :class="pane === 'tasks' && 'is-active'" aria-label="Tu bandeja">
+                <div class="section-head">
                     <h2>Tu bandeja</h2>
-                    <div class="row" style="gap:8px">
-                        <span class="refresh-note hide-mobile" title="Revisión automática del correo y la agenda"><x-icon name="clock"/>{{ $workHours ? 'Al día, cada minuto' : 'Cada hora (fuera de horario)' }}</span>
-                        @if ($mailAccounts)
-                            <form method="post" action="{{ route('inbox.refresh') }}">@csrf<button class="btn btn-ghost btn-sm" title="Revisar correo ahora"><x-icon name="refresh"/> Revisar</button></form>
-                        @endif
+                    <div class="legend hide-mobile">
+                        <span class="refresh-note"><x-icon name="clock"/>{{ $workHours ? 'Revisando cada minuto' : 'Revisando cada hora (fuera de horario)' }}</span>
+                        <span><span class="mark mark-tri" style="border-bottom-width:10px;border-left-width:6px;border-right-width:6px"></span>Te piden algo</span>
+                        <span><span class="mark mark-dot" style="width:10px;height:10px;background:var(--accent)"></span>Prioridad alta</span>
                     </div>
                 </div>
                 <div class="tabs" role="tablist">
@@ -70,7 +97,7 @@
 
                 @forelse ($tasks as $task)
                     @php($isAction = $task->kind === 'accion')
-                    <article class="task" :class="state[{{ $task->id }}] === 'done' && 'is-done'" x-show="shows({{ $task->id }})">
+                    <article class="task" data-priority="{{ $isAction ? $task->priority : '' }}" :class="state[{{ $task->id }}] === 'done' && 'is-done'" x-show="shows({{ $task->id }})">
                         @if ($isAction)
                             <button type="button" class="task-check" x-on:click="toggle({{ $task->id }}, @js(route('inbox.update', $task)))"
                                     :aria-pressed="state[{{ $task->id }}] === 'done'" aria-label="Marcar como hecho" title="Listo"><x-icon name="check" stroke-width="3"/></button>
@@ -140,7 +167,7 @@
             </section>
 
             {{-- Línea de tiempo del día --}}
-            <section class="card" data-pane="timeline" :class="pane === 'timeline' && 'is-active'" aria-label="Línea de tiempo">
+            <section class="card agenda-card" data-pane="timeline" :class="pane === 'timeline' && 'is-active'" aria-label="Línea de tiempo">
                 <div class="card-head"><h2>Agenda del día</h2><a class="btn btn-ghost btn-sm" href="{{ route('agenda') }}">Ver semana</a></div>
                 @if ($allDay->isNotEmpty())
                     <div class="allday">
@@ -236,6 +263,7 @@
                     const i = items.find(x => x.id === id);
                     return !this.gone[id] && this.bucket(i) === this.tab && this.matches(i);
                 },
+                get altaCount() { return items.filter(i => !this.gone[i.id] && this.state[i.id] !== 'done' && this.bucket(i) === 'accion' && i.priority === 'alta').length; },
                 get anyVisible() { return items.some(i => this.shows(i.id)); },
                 get emptyText() {
                     return { accion: 'Nada esperando tu acción. Buen momento para adelantar lo importante.',
