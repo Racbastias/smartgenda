@@ -61,6 +61,26 @@
             </div>
         </header>
 
+        {{-- Barra compacta: aparece al bajar, cuando el saludo y los widgets quedan fuera de la vista --}}
+        <div class="quickbar" :class="quick && 'is-shown'" x-cloak :aria-hidden="!quick" x-effect="$el.inert = !quick">
+            @if ($next)
+                <button type="button" class="qb-meet" style="--cal-color: {{ $ev->calendarAccount->color }}" x-on:click="sgShowEvent(@js($ev->detail($tz)))" title="Ver detalle de la reunión">
+                    <span class="dot"></span><b class="tnum">{{ $next['start']->format('H:i') }}</b><span class="qb-title">{{ $ev->title }}</span>
+                </button>
+                @if ($join)
+                    <a class="qb-join" href="{{ $join['url'] }}" target="_blank" rel="noopener" title="Unirse por {{ $join['label'] }}"><x-icon name="video"/><span>Unirse</span></a>
+                @endif
+                <span class="qb-sep"></span>
+            @endif
+            <div class="qb-counts">
+                <button type="button" class="qb-count is-amber" :class="tab === 'accion' && 'is-on'" x-on:click="goTo('accion')" title="Tu acción"><x-icon name="zap"/><b x-text="count('accion')"></b><span>acción</span></button>
+                <button type="button" class="qb-count is-purple" :class="tab === 'seguimiento' && 'is-on'" x-on:click="goTo('seguimiento')" title="En seguimiento"><x-icon name="hourglass"/><b x-text="count('seguimiento')"></b><span>seguimiento</span></button>
+                <button type="button" class="qb-count is-blue" :class="tab === 'leer' && 'is-on'" x-on:click="goTo('leer')" title="Para leer"><x-icon name="eye"/><b x-text="count('leer')"></b><span>leer</span></button>
+                <button type="button" class="qb-count is-gray" :class="tab === 'copia' && 'is-on'" x-on:click="goTo('copia')" title="En copia"><x-icon name="copy"/><b x-text="count('copia')"></b><span>copia</span></button>
+            </div>
+            <button type="button" class="qb-top" x-on:click="window.scrollTo({ top: 0, behavior: 'smooth' })" aria-label="Volver arriba"><x-icon name="arrow-right"/></button>
+        </div>
+
         <div class="segmented show-mobile" style="margin-bottom:12px" role="group" aria-label="Vista">
             <button type="button" :aria-pressed="pane === 'tasks'" x-on:click="pane = 'tasks'">Correo <span class="muted" x-text="count('accion')"></span></button>
             <button type="button" :aria-pressed="pane === 'timeline'" x-on:click="pane = 'timeline'">Tu día</button>
@@ -224,18 +244,31 @@
             Alpine.data('todayPage', ({ isToday, day, items, doneToday }) => ({
                 doneToday,
                 tab: sessionStorage.getItem('sg.kind') || 'accion', filter: sessionStorage.getItem('sg.filter') || 'all',
-                pane: sessionStorage.getItem('sg.pane') || 'tasks', gone: {},
+                pane: sessionStorage.getItem('sg.pane') || 'tasks', gone: {}, quick: false,
                 state: Object.fromEntries(items.map(i => [i.id, i.status])),
                 kind: Object.fromEntries(items.map(i => [i.id, i.kind])),
                 init() {
                     this.$watch('tab', v => sessionStorage.setItem('sg.kind', v));
                     this.$watch('filter', v => sessionStorage.setItem('sg.filter', v));
                     this.$watch('pane', v => sessionStorage.setItem('sg.pane', v));
+                    // Barra compacta: visible cuando el saludo ya salió de la pantalla
+                    const hero = this.$root.querySelector('.hero');
+                    let ticking = false;
+                    const check = () => { this.quick = hero.getBoundingClientRect().bottom < 8; ticking = false; };
+                    window.addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(check); } }, { passive: true });
+                    check();
                     // Se actualiza sola: cada minuto en horario laboral, cada hora fuera de él
                     // (si la pestaña está visible y no hay un formulario o menú abierto)
                     sgAutoRefresh(() => {
                         if (window.sgModalOpen || document.querySelector('.menu-list:not([style*="none"])')) return false;
                         location.reload();
+                    });
+                },
+                goTo(kind) {
+                    this.tab = kind; this.pane = 'tasks';
+                    this.$nextTick(() => {
+                        const el = this.$root.querySelector('.inbox');
+                        window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 64, behavior: 'smooth' });
                     });
                 },
                 bucket(i) {

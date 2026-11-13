@@ -28,6 +28,7 @@
 
 * { box-sizing: border-box; }
 html, body { overflow-x: hidden; }
+@supports (overflow: clip) { html, body { overflow-x: clip; } }
 body {
     margin: 0; background: var(--bg); color: var(--text);
     font: 14px/1.5 var(--font); font-feature-settings: "cv11", "ss01"; -webkit-font-smoothing: antialiased;
@@ -288,7 +289,7 @@ tr:last-child td { border-bottom: 0; }
 #calendar .fc-timegrid-axis-cushion { font-size: 11px; color: var(--muted); max-width: 52px; text-align: right; line-height: 1.2; }
 @media (min-width: 768px) {
     /* La barra lateral sigue hasta el final aunque la página sea larga */
-    .shell { background: linear-gradient(90deg, var(--surface) 0 223px, var(--border) 223px 224px, transparent 224px); }
+    .shell { background: linear-gradient(90deg, var(--ink) 0 224px, transparent 224px); }
 }
 @media (max-width: 767px) {
     .task { flex-wrap: wrap; }
@@ -719,3 +720,43 @@ html { background: var(--bg); }
 .guest-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--orange); margin-bottom: 18px; animation: sg-rise 1s cubic-bezier(.2,.8,.2,1) both; }
 @media (max-width: 860px) { .guest-eyebrow { margin-bottom: 12px; } }
 @media (prefers-reduced-motion: reduce) { .guest-eyebrow { animation: none; } }
+
+/* ---------- Barra compacta de Hoy ---------- */
+.quickbar {
+    position: fixed; top: 10px; left: calc(224px + 24px); right: 24px; z-index: 40; margin: 0 auto; max-width: 1100px;
+    display: flex; align-items: center; gap: 6px; min-height: 52px; padding: 6px 6px 6px 8px;
+    background: rgba(14,17,22,.86); color: #fff; border: 1px solid rgba(255,255,255,.08); border-radius: 16px;
+    -webkit-backdrop-filter: saturate(160%) blur(14px); backdrop-filter: saturate(160%) blur(14px);
+    box-shadow: 0 10px 30px rgba(14,17,22,.18);
+    transform: translateY(calc(-100% - 16px)); opacity: 0; pointer-events: none;
+    transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .25s ease;
+}
+.quickbar.is-shown { transform: none; opacity: 1; pointer-events: auto; }
+.quickbar button, .quickbar a { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-decoration: none; }
+.quickbar svg { width: 16px; height: 16px; flex: none; }
+.qb-meet { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 40px; padding: 0 10px; border-radius: 10px; }
+.qb-meet:hover, .qb-count:hover, .qb-top:hover { background: rgba(255,255,255,.08); }
+.qb-meet b { font: 700 15px var(--display); color: var(--orange); }
+.qb-meet .dot { background: var(--cal-color); }
+.qb-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 28ch; }
+.qb-join { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border-radius: 10px; background: var(--accent) !important; font-weight: 600; font-size: 13px; flex: none; }
+.qb-join:hover { background: var(--accent-hover) !important; }
+.qb-sep { width: 1px; height: 24px; background: rgba(255,255,255,.12); margin: 0 4px; flex: none; }
+.qb-counts { display: flex; gap: 2px; margin-left: auto; flex: none; }
+.qb-count { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 10px; border-radius: 10px; color: #C9CED6 !important; font-size: 13px; }
+.qb-count b { font: 700 15px var(--display); color: #fff; }
+.qb-count.is-amber svg { color: var(--orange); } .qb-count.is-purple svg { color: #A78BFA; }
+.qb-count.is-blue svg { color: #60A5FA; } .qb-count.is-gray svg { color: #9AA3AF; }
+.qb-count.is-on { background: rgba(255,255,255,.1); color: #fff !important; }
+.qb-top { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; color: var(--ink-muted) !important; flex: none; }
+.qb-top svg { transform: rotate(-90deg); }
+@media (max-width: 1100px) { .qb-count span { display: none; } }
+@media (max-width: 767px) {
+    .quickbar { left: 8px; right: 8px; top: calc(6px + env(safe-area-inset-top)); gap: 2px; padding: 4px; border-radius: 14px; }
+    .qb-title { max-width: 12ch; }
+    .qb-meet { padding: 0 8px; gap: 6px; }
+    .qb-join span, .qb-top, .qb-sep { display: none; }
+    .qb-join { padding: 0 10px; min-height: 40px; }
+    .qb-count { padding: 0 7px; gap: 4px; }
+}
+@media (prefers-reduced-motion: reduce) { .quickbar { transition: opacity .2s ease; transform: none; } }
