@@ -12,14 +12,15 @@
 </head>
 <body class="guest-body">
 <main class="guest">
-    <section class="guest-hero" aria-hidden="true">
+    <section class="guest-hero">
         <div class="brand"><span class="brand-mark">S</span> Smartgenda</div>
+        <p class="guest-eyebrow">Asistente y agenda inteligente</p>
         <p class="guest-title">Tu día,<br>en orden<span>.</span></p>
-        <p class="guest-sub">Tus tres agendas y el correo que pide tu acción, en un solo lugar.</p>
-        <ul class="guest-cals">
-            <li><span style="background:#D97706"></span>Lilienfeld</li>
-            <li><span style="background:#2563EB"></span>Aminfo</li>
-            <li><span style="background:#059669"></span>Personal</li>
+        <p class="guest-sub">Junta todas tus agendas en una sola línea del día y lee tu correo para decirte qué requiere tu acción.</p>
+        <ul class="guest-feats">
+            <li><x-icon name="calendar"/>Todas tus agendas, sin choques</li>
+            <li><x-icon name="mail"/>El correo que importa, resumido</li>
+            <li><x-icon name="zap"/>Seguimiento de lo pendiente</li>
         </ul>
     </section>
     <section class="guest-card">
