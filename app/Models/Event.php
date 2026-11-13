@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['remote_id', 'title', 'description', 'location', 'starts_at', 'ends_at', 'all_day', 'busy'])]
+#[Fillable(['remote_id', 'title', 'description', 'location', 'starts_at', 'ends_at', 'all_day', 'busy', 'attendees', 'organizer', 'remote_created_at'])]
 class Event extends Model
 {
     use HasFactory;
@@ -19,6 +19,8 @@ class Event extends Model
             'ends_at' => 'datetime',
             'all_day' => 'boolean',
             'busy' => 'boolean',
+            'attendees' => 'array',
+            'remote_created_at' => 'datetime',
         ];
     }
 

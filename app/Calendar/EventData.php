@@ -16,6 +16,10 @@ final class EventData
         public ?string $description = null,
         public ?string $location = null,
         public bool $busy = true,
+        /** @var list<string> correos de los invitados, en minúsculas */
+        public array $attendees = [],
+        public ?string $organizer = null,
+        public ?CarbonImmutable $createdAt = null,
     ) {}
 
     /** @return array<string, mixed> */
@@ -29,6 +33,9 @@ final class EventData
             'ends_at' => $this->endsAt->utc(),
             'all_day' => $this->allDay,
             'busy' => $this->busy,
+            'attendees' => $this->attendees ?: null,
+            'organizer' => $this->organizer ? mb_strtolower($this->organizer) : null,
+            'remote_created_at' => $this->createdAt?->utc(),
         ];
     }
 }

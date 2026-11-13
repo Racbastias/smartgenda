@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable(['remote_id', 'conversation_id', 'from_name', 'from_email', 'subject', 'received_at', 'summary',
-    'priority', 'kind', 'in_copy', 'needs_reply', 'actions', 'due_on', 'status', 'resolution', 'resolved_at'])]
+    'priority', 'kind', 'in_copy', 'needs_reply', 'actions', 'due_on', 'status', 'resolution', 'resolved_at', 'resolved_event_id', 'reopened_at'])]
 class EmailItem extends Model
 {
     public const PENDING = 'pending';
@@ -26,11 +26,18 @@ class EmailItem extends Model
         return [
             'received_at' => 'datetime',
             'resolved_at' => 'datetime',
+            'reopened_at' => 'datetime',
             'due_on' => 'date',
             'needs_reply' => 'boolean',
             'in_copy' => 'boolean',
             'actions' => 'array',
         ];
+    }
+
+    /** Reunión que dejó cerrado este pendiente (resolution = scheduled). @return BelongsTo<Event, $this> */
+    public function resolvedEvent(): BelongsTo
+    {
+        return $this->belongsTo(Event::class, 'resolved_event_id');
     }
 
     /** @return BelongsTo<CalendarAccount, $this> */

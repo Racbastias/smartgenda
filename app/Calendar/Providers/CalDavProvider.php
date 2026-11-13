@@ -148,6 +148,13 @@ class CalDavProvider implements CalendarProvider
         }
     }
 
+    private static function mailto(string $value): ?string
+    {
+        $email = mb_strtolower(trim(preg_replace('/^mailto:/i', '', $value)));
+
+        return str_contains($email, '@') ? $email : null;
+    }
+
     /** @return list<EventData> */
     public function parseCalendar(string $ics, CarbonImmutable $from, CarbonImmutable $to): array
     {
@@ -191,6 +198,9 @@ class CalDavProvider implements CalendarProvider
                 description: isset($vevent->DESCRIPTION) ? (string) $vevent->DESCRIPTION : null,
                 location: isset($vevent->LOCATION) ? (string) $vevent->LOCATION : null,
                 busy: strtoupper((string) $vevent->TRANSP) !== 'TRANSPARENT',
+                attendees: collect($vevent->select('ATTENDEE'))->map(fn ($a) => self::mailto((string) $a))->filter()->unique()->values()->all(),
+                organizer: isset($vevent->ORGANIZER) ? self::mailto((string) $vevent->ORGANIZER) : null,
+                createdAt: isset($vevent->CREATED) ? CarbonImmutable::instance($vevent->CREATED->getDateTime(new DateTimeZone('UTC'))) : null,
             );
         }
 

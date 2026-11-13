@@ -218,6 +218,8 @@
                                             <span class="dot"></span> {{ $r->account->name }} · {{ $r->from_name ?: $r->from_email }} ·
                                             @if ($r->resolution === 'replied')
                                                 <b class="resolved-why"><x-icon name="reply"/>Respondiste {{ $r->resolved_at->setTimezone($tz)->locale('es')->isoFormat('ddd D MMM, HH:mm') }}</b>
+                                            @elseif ($r->resolution === 'scheduled')
+                                                <b class="resolved-why"><x-icon name="calendar"/>Quedó agendado{{ $r->resolvedEvent ? ': '.$r->resolvedEvent->title.' · '.$r->resolvedEvent->starts_at->setTimezone($tz)->locale('es')->isoFormat($r->resolvedEvent->all_day ? 'ddd D MMM' : 'ddd D MMM, HH:mm') : '' }}</b>
                                             @else
                                                 <b class="resolved-why"><x-icon name="mail"/>Llegó un correo más nuevo de la misma conversación</b>
                                             @endif
