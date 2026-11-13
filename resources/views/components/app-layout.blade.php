@@ -24,6 +24,36 @@
     <script defer src="{{ asset('vendor/alpine/alpine-3.14.9.min.js') }}"></script>
 </head>
 <body data-store-url="{{ route('agenda.store') }}" data-events-url="{{ url('/agenda/eventos') }}">
+@if (session('welcome'))
+    @php
+        $wNow = now(config('app.work_timezone'));
+        $wHello = match (true) { $wNow->hour >= 5 && $wNow->hour < 12 => 'Buenos días', $wNow->hour >= 12 && $wNow->hour < 20 => 'Buenas tardes', default => 'Buenas noches' };
+        $wFirst = \Illuminate\Support\Str::of($user->name)->before(' ');
+    @endphp
+    <div class="welcome" id="sg-welcome" role="status" aria-live="polite">
+        <p class="welcome-date">{{ ucfirst($wNow->locale('es')->isoFormat('dddd D [de] MMMM')) }}</p>
+        <p class="welcome-title"><span>{{ $wHello }},</span> <span>{{ $wFirst }}<i>.</i></span></p>
+        <p class="welcome-sub">Tu día está listo.</p>
+    </div>
+    <script>
+        (function () {
+            var w = document.getElementById('sg-welcome');
+            var root = document.documentElement;
+            var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            root.classList.add('is-welcoming');
+            var done = false;
+            function finish() {
+                if (done) return; done = true;
+                root.classList.add('is-arriving');
+                w.classList.add('is-leaving');
+                setTimeout(function () { w.remove(); root.classList.remove('is-welcoming', 'is-arriving'); }, reduce ? 300 : 1100);
+            }
+            var t = setTimeout(finish, reduce ? 1200 : 2900);
+            w.addEventListener('click', function () { clearTimeout(t); finish(); });
+            document.addEventListener('keydown', function () { clearTimeout(t); finish(); }, { once: true });
+        })();
+    </script>
+@endif
 <div class="shell">
     <aside class="sidebar">
         <div class="brand"><span class="brand-mark">S</span> Smartgenda</div>
