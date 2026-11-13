@@ -14,6 +14,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="theme-color" content="#0E1116">
+    <x-head-icons/>
     <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700;800&display=swap">
     <title>{{ $title }} · Smartgenda</title>
@@ -56,7 +57,7 @@
 @endif
 <div class="shell">
     <aside class="sidebar">
-        <div class="brand"><span class="brand-mark">S</span> Smartgenda</div>
+        <div class="brand"><img class="brand-mark" src="{{ asset('img/logo-mark.png') }}" alt=""> Smartgenda</div>
         <nav class="nav">
             @foreach ($nav as [$route, $label, $icon, $match])
                 <a href="{{ route($route) }}" @class(['active' => request()->routeIs($match)])><x-icon :name="$icon"/> {{ $label }}</a>
@@ -73,7 +74,7 @@
 
     <div class="content">
         <header class="topbar">
-            <div class="brand" style="padding:0"><span class="brand-mark">S</span> Smartgenda</div>
+            <div class="brand" style="padding:0"><img class="brand-mark" src="{{ asset('img/logo-mark.png') }}" alt=""> Smartgenda</div>
             <div class="row">
                 @if ($user->is_admin)<a class="btn btn-ghost btn-sm" href="{{ route('users.index') }}"><x-icon name="users"/><span class="sr-only">Usuarios</span></a>@endif
                 <form method="post" action="{{ route('logout') }}">@csrf<button class="btn btn-ghost btn-sm"><x-icon name="logout"/><span class="sr-only">Salir</span></button></form>
