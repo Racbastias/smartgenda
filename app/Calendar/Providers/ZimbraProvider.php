@@ -8,6 +8,7 @@ use App\Calendar\EventData;
 use App\Calendar\RemoteCalendar;
 use App\Inbox\MailMessage;
 use App\Inbox\MailProvider;
+use App\Inbox\SentMessage;
 use App\Models\CalendarAccount;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\PendingRequest;
@@ -243,6 +244,30 @@ class ZimbraProvider implements CalendarProvider, MailProvider
         }
 
         return $messages;
+    }
+
+    public function fetchSent(CalendarAccount $account, CarbonImmutable $since, int $limit = 100): array
+    {
+        $response = $this->call($account, fn (string $token) => $this->soap($account, 'SearchRequest', [
+            '_jsns' => 'urn:zimbraMail',
+            'query' => 'in:sent',
+            'types' => 'message',
+            'sortBy' => 'dateDesc',
+            'limit' => $limit,
+            'recip' => '2', // remitente y destinatarios
+        ], $token));
+
+        $sent = [];
+        foreach ($response['m'] ?? [] as $m) {
+            $at = CarbonImmutable::createFromTimestampMs((int) ($m['d'] ?? 0), 'UTC');
+            if ($at->lessThan($since)) {
+                break;
+            }
+            $recipients = collect($m['e'] ?? [])->whereIn('t', ['t', 'c'])->pluck('a')->filter()->map(fn ($a) => mb_strtolower($a))->values()->all();
+            $sent[] = new SentMessage(isset($m['cid']) ? (string) $m['cid'] : null, $this->text($m['su'] ?? null) ?? '', $recipients, $at);
+        }
+
+        return $sent;
     }
 
     /** Encabezados de lista o Precedence: bulk/list. Zimbra los entrega en _attrs (o como lista de header). */

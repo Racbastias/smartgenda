@@ -29,7 +29,7 @@ class InboxController extends Controller
             'status' => ['required', 'in:pending,doing,waiting,done,dismissed'],
             'kind' => ['sometimes', 'in:accion,leer,copia'],
         ]);
-        $item->update($data);
+        $item->update($data + ['resolution' => null, 'resolved_at' => null]);
         if ($request->wantsJson()) {
             return response()->json(['status' => $item->status]);
         }

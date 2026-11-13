@@ -8,6 +8,7 @@ use App\Calendar\EventData;
 use App\Calendar\RemoteCalendar;
 use App\Inbox\MailMessage;
 use App\Inbox\MailProvider;
+use App\Inbox\SentMessage;
 use App\Models\CalendarAccount;
 use Carbon\CarbonImmutable;
 use Google\Client;
@@ -179,6 +180,24 @@ class GoogleProvider implements CalendarProvider, MailProvider
         usort($messages, fn ($a, $b) => $b->receivedAt <=> $a->receivedAt);
 
         return $messages;
+    }
+
+    public function fetchSent(CalendarAccount $account, CarbonImmutable $since, int $limit = 100): array
+    {
+        $gmail = new Gmail($this->client($account));
+        $list = $gmail->users_messages->listUsersMessages('me', ['q' => 'in:sent after:'.$since->getTimestamp(), 'maxResults' => $limit]);
+
+        $sent = [];
+        foreach ($list->getMessages() ?? [] as $ref) {
+            $m = $gmail->users_messages->get('me', $ref->getId(), ['format' => 'metadata', 'metadataHeaders' => ['Subject', 'To', 'Cc']]);
+            $headers = $this->headers($m->getPayload());
+            $recipients = collect(preg_split('/,(?=(?:[^"]*"[^"]*")*[^"]*$)/', ($headers['to'] ?? '').','.($headers['cc'] ?? '')))
+                ->map(fn ($a) => mb_strtolower((string) ($this->address($a)[1] ?? '')))->filter()->values()->all();
+            $sent[] = new SentMessage($m->getThreadId(), $headers['subject'] ?? '', $recipients,
+                CarbonImmutable::createFromTimestampMs((int) $m->getInternalDate(), 'UTC'));
+        }
+
+        return $sent;
     }
 
     public function trashMessage(CalendarAccount $account, string $messageId): void

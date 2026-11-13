@@ -33,6 +33,11 @@ class TodayController extends Controller
         $doneToday = $user->emailItems()->where('kind', 'accion')->where('status', EmailItem::DONE)
             ->where('email_items.updated_at', '>=', $now->startOfDay()->utc())->count();
 
+        // Trazabilidad: lo que se cerró solo (ya respondiste, o llegó un correo más nuevo de la misma conversación)
+        $resolved = $user->emailItems()->with('account:id,name,color')
+            ->whereNotNull('resolution')->where('resolved_at', '>=', $now->subDays(7)->utc())
+            ->orderByDesc('resolved_at')->limit(12)->get();
+
         $next = collect($plan['items'])->first(fn ($i) => $i['type'] === 'event' && $i['start']->gt($now));
         $counts = [
             'accion' => $tasks->where('kind', 'accion')->where('status', '!=', EmailItem::WAITING)->count(),
@@ -52,6 +57,7 @@ class TodayController extends Controller
             'plan' => $plan,
             'tasks' => $tasks,
             'doneToday' => $doneToday,
+            'resolved' => $resolved,
             'next' => $isToday ? $next : null,
             'mailAccounts' => $user->calendarAccounts()->where('mail_enabled', true)->count(),
         ]);

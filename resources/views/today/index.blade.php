@@ -206,6 +206,29 @@
                     <div class="empty" x-show="!anyVisible" x-cloak><x-icon name="sparkles"/><span x-text="emptyText"></span></div>
                 @endif
                 </div>
+                @if ($resolved->isNotEmpty())
+                    <details class="resolved">
+                        <summary><x-icon name="check"/> Cerrados solos <span class="muted">· {{ $resolved->count() }} en los últimos 7 días</span></summary>
+                        <ul>
+                            @foreach ($resolved as $r)
+                                <li style="--cal-color: {{ $r->account->color }}">
+                                    <div class="grow" style="min-width:0">
+                                        <div class="resolved-subject">{{ $r->subject ?: '(sin asunto)' }}</div>
+                                        <div class="small muted">
+                                            <span class="dot"></span> {{ $r->account->name }} · {{ $r->from_name ?: $r->from_email }} ·
+                                            @if ($r->resolution === 'replied')
+                                                <b class="resolved-why"><x-icon name="reply"/>Respondiste {{ $r->resolved_at->setTimezone($tz)->locale('es')->isoFormat('ddd D MMM, HH:mm') }}</b>
+                                            @else
+                                                <b class="resolved-why"><x-icon name="mail"/>Llegó un correo más nuevo de la misma conversación</b>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <form method="post" action="{{ route('inbox.update', $r) }}">@csrf @method('patch')<input type="hidden" name="status" value="pending"><button class="btn btn-sm btn-ghost" title="Volver a pendientes">Reabrir</button></form>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </details>
+                @endif
             </section>
 
             {{-- Línea del día (las 3 agendas) --}}
