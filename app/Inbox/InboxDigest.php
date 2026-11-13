@@ -68,6 +68,17 @@ class InboxDigest
             } catch (Throwable $e) {
                 report($e);
             }
+            // …y lo que ya terminó en una reunión agendada
+            try {
+                app(MeetingTracker::class)->reconcile($account->user);
+            } catch (Throwable $e) {
+                report($e);
+            }
+            if ($toAct) {
+                $stillOpen = $account->emailItems()->whereIn('status', [EmailItem::PENDING, EmailItem::DOING])
+                    ->whereIn('remote_id', array_map(fn ($i) => $i[0]->remoteId, $toAct))->pluck('remote_id')->all();
+                $toAct = array_values(array_filter($toAct, fn ($i) => in_array($i[0]->remoteId, $stillOpen, true)));
+            }
 
             // Aviso al teléfono: solo correos nuevos que piden algo (no en la primera lectura de varios días)
             if ($toAct && $account->mail_synced_at && $account->user->notify_mail) {

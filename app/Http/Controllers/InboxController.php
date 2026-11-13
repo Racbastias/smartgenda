@@ -29,7 +29,9 @@ class InboxController extends Controller
             'status' => ['required', 'in:pending,doing,waiting,done,dismissed'],
             'kind' => ['sometimes', 'in:accion,leer,copia'],
         ]);
-        $item->update($data + ['resolution' => null, 'resolved_at' => null]);
+        $reopened = $item->resolution && in_array($data['status'], [EmailItem::PENDING, EmailItem::DOING], true);
+        $item->update($data + ['resolution' => null, 'resolved_at' => null, 'resolved_event_id' => null]
+            + ($reopened ? ['reopened_at' => now()] : []));
         if ($request->wantsJson()) {
             return response()->json(['status' => $item->status]);
         }

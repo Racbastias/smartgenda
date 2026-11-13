@@ -74,7 +74,7 @@ class GoogleProvider implements CalendarProvider, MailProvider
                 'pageToken' => $pageToken,
             ]));
             foreach ($page->getItems() as $item) {
-                if ($item->getStatus() !== 'cancelled') {
+                if ($item->getStatus() !== 'cancelled' && ! $this->declined($item)) {
                     $events[] = $this->toEventData($item);
                 }
             }
@@ -128,7 +128,22 @@ class GoogleProvider implements CalendarProvider, MailProvider
                 : $item->getDescription(),
             location: $item->getLocation(),
             busy: $item->getTransparency() !== 'transparent',
+            attendees: collect($item->getAttendees() ?? [])->map(fn ($a) => mb_strtolower((string) $a->getEmail()))->filter()->values()->all(),
+            organizer: $item->getOrganizer()?->getEmail(),
+            createdAt: $item->getCreated() ? CarbonImmutable::parse($item->getCreated())->utc() : null,
         );
+    }
+
+    /** Invitaciones que rechazaste: no ocupan tu agenda. */
+    private function declined(GoogleEvent $item): bool
+    {
+        foreach ($item->getAttendees() ?? [] as $a) {
+            if ($a->getSelf() && $a->getResponseStatus() === 'declined') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function dateTime(CarbonImmutable $value, bool $allDay): EventDateTime

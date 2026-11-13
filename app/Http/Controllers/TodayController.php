@@ -34,7 +34,7 @@ class TodayController extends Controller
             ->where('email_items.updated_at', '>=', $now->startOfDay()->utc())->count();
 
         // Trazabilidad: lo que se cerró solo (ya respondiste, o llegó un correo más nuevo de la misma conversación)
-        $resolved = $user->emailItems()->with('account:id,name,color')
+        $resolved = $user->emailItems()->with(['account:id,name,color', 'resolvedEvent:id,title,starts_at,all_day'])
             ->whereNotNull('resolution')->where('resolved_at', '>=', $now->subDays(7)->utc())
             ->orderByDesc('resolved_at')->limit(12)->get();
 
