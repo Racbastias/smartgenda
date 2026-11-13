@@ -55,11 +55,18 @@ class InboxDigest
                     if ($summary = $summaries[$message->remoteId] ?? null) {
                         $this->store($account, $message, $summary);
                         $created++;
-                        if ($summary->category === 'accion' || ($summary->priority === 'alta' && $summary->category !== 'ruido')) {
+                        if (! $message->replied && ($summary->category === 'accion' || ($summary->priority === 'alta' && $summary->category !== 'ruido'))) {
                             $toAct[] = [$message, $summary];
                         }
                     }
                 }
+            }
+
+            // Trazabilidad: cierra lo que ya respondiste desde tu correo
+            try {
+                app(ReplyTracker::class)->reconcile($account);
+            } catch (Throwable $e) {
+                report($e);
             }
 
             // Aviso al teléfono: solo correos nuevos que piden algo (no en la primera lectura de varios días)
@@ -109,7 +116,18 @@ class InboxDigest
             'needs_reply' => $summary->needsReply,
             'actions' => $summary->actions,
             'due_on' => $dueOn,
-            'status' => EmailItem::PENDING,
+            'status' => $message->replied ? EmailItem::DONE : EmailItem::PENDING,
+            'resolution' => $message->replied ? 'replied' : null,
+            'resolved_at' => $message->replied ? now() : null,
         ]);
+
+        // Un correo nuevo que pide algo en la misma conversación reemplaza a los anteriores
+        if ($message->conversationId && $summary->category === 'accion' && ! $message->replied) {
+            $account->emailItems()->where('conversation_id', $message->conversationId)
+                ->where('remote_id', '!=', $message->remoteId)
+                ->where('received_at', '<', $message->receivedAt)
+                ->whereIn('status', [EmailItem::PENDING, EmailItem::DOING])
+                ->update(['status' => EmailItem::DISMISSED, 'resolution' => 'superseded', 'resolved_at' => now()]);
+        }
     }
 }

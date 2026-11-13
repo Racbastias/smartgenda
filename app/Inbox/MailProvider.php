@@ -13,5 +13,12 @@ interface MailProvider
 
     public function trashMessage(CalendarAccount $account, string $messageId): void;
 
+    /**
+     * Correos enviados desde $since (para saber qué ya se respondió).
+     *
+     * @return list<SentMessage>
+     */
+    public function fetchSent(CalendarAccount $account, CarbonImmutable $since, int $limit = 100): array;
+
     public function reply(CalendarAccount $account, string $messageId, string $toEmail, ?string $toName, string $subject, string $body, ?string $html = null): void;
 }

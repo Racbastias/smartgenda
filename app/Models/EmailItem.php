@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable(['remote_id', 'conversation_id', 'from_name', 'from_email', 'subject', 'received_at', 'summary',
-    'priority', 'kind', 'in_copy', 'needs_reply', 'actions', 'due_on', 'status'])]
+    'priority', 'kind', 'in_copy', 'needs_reply', 'actions', 'due_on', 'status', 'resolution', 'resolved_at'])]
 class EmailItem extends Model
 {
     public const PENDING = 'pending';
@@ -25,6 +25,7 @@ class EmailItem extends Model
     {
         return [
             'received_at' => 'datetime',
+            'resolved_at' => 'datetime',
             'due_on' => 'date',
             'needs_reply' => 'boolean',
             'in_copy' => 'boolean',

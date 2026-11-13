@@ -815,3 +815,16 @@ html { background: var(--bg); }
 .signature[open] { padding-bottom: 12px; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
 .signature-preview { width: 100%; min-height: 120px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+
+/* ---------- Cerrados solos (trazabilidad) ---------- */
+.resolved { margin-top: 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.resolved summary { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 16px; cursor: pointer; font-weight: 600; list-style: none; }
+.resolved summary::-webkit-details-marker { display: none; }
+.resolved summary svg { width: 16px; height: 16px; color: var(--ok); }
+.resolved summary .muted { font-weight: 400; }
+.resolved ul { list-style: none; margin: 0; padding: 0 8px 8px; }
+.resolved li { display: flex; align-items: center; gap: 10px; padding: 10px 8px; border-top: 1px solid var(--border); }
+.resolved-subject { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.resolved .dot { width: 7px; height: 7px; vertical-align: middle; }
+.resolved-why { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; color: var(--ok); }
+.resolved-why svg { width: 13px; height: 13px; }

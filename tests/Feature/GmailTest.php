@@ -108,6 +108,25 @@ class GmailTest extends TestCase
         $this->assertStringContainsString(base64_encode('Te la envío hoy.'), str_replace("\r\n", '', $mime));
     }
 
+    public function test_sent_messages_are_read_with_thread_and_recipients(): void
+    {
+        $this->fakeGoogle([
+            ['messages' => [['id' => 's1']]],
+            ['id' => 's1', 'threadId' => 't9', 'internalDate' => '1763060400000', 'payload' => ['headers' => [
+                ['name' => 'Subject', 'value' => 'RE: Elige un horario'],
+                ['name' => 'To', 'value' => '"CTEC, Agenda" <agenda@ctec.cl>'],
+                ['name' => 'Cc', 'value' => 'Otro@Mail.cl'],
+            ]]],
+        ]);
+
+        $sent = app(GoogleProvider::class)->fetchSent($this->account(), CarbonImmutable::parse('2026-11-01'));
+
+        $this->assertCount(1, $sent);
+        $this->assertSame('t9', $sent[0]->conversationId);
+        $this->assertSame(['agenda@ctec.cl', 'otro@mail.cl'], $sent[0]->recipients);
+        $this->assertStringContainsString('in:sent after:', urldecode((string) $this->sent[0]['request']->getUri()));
+    }
+
     public function test_trash_moves_to_gmail_trash(): void
     {
         $this->fakeGoogle([['id' => 'm1']]);
