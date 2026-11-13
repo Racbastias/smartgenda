@@ -23,6 +23,7 @@ class FakeSummarizer implements EmailSummarizer
                 priority: $urgent ? 'alta' : 'baja',
                 needsReply: $urgent,
                 actions: $urgent ? [['text' => 'Enviar cotización', 'due' => '2026-11-14']] : [],
+                category: $urgent ? 'accion' : (str_contains($m->subject, 'Boletín') ? 'ruido' : ($m->directlyAddressed ? 'leer' : 'copia')),
             );
         }
 

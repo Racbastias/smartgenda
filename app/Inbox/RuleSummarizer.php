@@ -35,15 +35,16 @@ class RuleSummarizer implements EmailSummarizer
     public function summarize(User $user, array $messages): array
     {
         $tz = $user->timezone ?: config('app.timezone');
+        $name = mb_strtolower(strtok((string) $user->name, ' ') ?: '');
         $out = [];
         foreach ($messages as $m) {
-            $out[$m->remoteId] = $this->one($m, $m->receivedAt->setTimezone($tz)->startOfDay());
+            $out[$m->remoteId] = $this->one($m, $m->receivedAt->setTimezone($tz)->startOfDay(), $name);
         }
 
         return $out;
     }
 
-    private function one(MailMessage $m, CarbonImmutable $day): EmailSummary
+    private function one(MailMessage $m, CarbonImmutable $day, string $name): EmailSummary
     {
         $text = $this->ownText($m->body);
         $automated = $m->bulk
@@ -67,12 +68,35 @@ class RuleSummarizer implements EmailSummarizer
         $urgent = preg_match(self::URGENT, $m->subject.' '.$text)
             || ($due && CarbonImmutable::parse($due)->lessThanOrEqualTo($day->addDays(2)));
 
+        $actions = $m->replied ? [] : $actions;
+
         return new EmailSummary(
             summary: mb_strimwidth(implode(' ', array_slice($sentences, 0, 2)) ?: '(sin texto)', 0, 240, '…'),
             priority: $automated ? 'baja' : ($actions && $urgent ? 'alta' : ($actions ? 'media' : 'baja')),
             needsReply: ! $automated && $m->directlyAddressed && ! $m->replied && $actions !== [],
-            actions: $m->replied ? [] : $actions,
+            actions: $actions,
+            category: $this->category($m, $automated, $actions !== [], (bool) $urgent, $text, $name),
         );
+    }
+
+    /**
+     * accion: te piden algo · leer: va dirigido a ti, o estás en copia pero te nombran o es urgente ·
+     * copia: estás en copia y no te involucra · ruido: boletines y notificaciones.
+     */
+    private function category(MailMessage $m, bool $automated, bool $hasActions, bool $urgent, string $text, string $name): string
+    {
+        if ($automated) {
+            return 'ruido';
+        }
+        if ($m->directlyAddressed) {
+            return $hasActions ? 'accion' : 'leer';
+        }
+        $mentioned = mb_strlen($name) > 2 && preg_match('/\b'.preg_quote($name, '/').'\b/iu', $text);
+        if ($mentioned && preg_match(self::REQUEST, $text)) {
+            return 'accion';
+        }
+
+        return $mentioned || $urgent ? 'leer' : 'copia';
     }
 
     /** El texto nuevo del correo: sin saludo, sin el correo citado y sin la firma. */

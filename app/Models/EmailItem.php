@@ -8,10 +8,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable(['remote_id', 'conversation_id', 'from_name', 'from_email', 'subject', 'received_at', 'summary',
-    'priority', 'needs_reply', 'actions', 'due_on', 'status'])]
+    'priority', 'kind', 'in_copy', 'needs_reply', 'actions', 'due_on', 'status'])]
 class EmailItem extends Model
 {
     public const PENDING = 'pending';
+
+    public const DOING = 'doing';
+
+    public const WAITING = 'waiting'; // esperando respuesta de otra persona
 
     public const DONE = 'done';
 
@@ -23,6 +27,7 @@ class EmailItem extends Model
             'received_at' => 'datetime',
             'due_on' => 'date',
             'needs_reply' => 'boolean',
+            'in_copy' => 'boolean',
             'actions' => 'array',
         ];
     }
@@ -31,6 +36,12 @@ class EmailItem extends Model
     public function account(): BelongsTo
     {
         return $this->belongsTo(CalendarAccount::class, 'calendar_account_id');
+    }
+
+    /** Lo que se muestra en Hoy: abierto (pendiente, en curso o esperando) y que no sea publicidad. */
+    public function scopeOpen(Builder $query): void
+    {
+        $query->whereIn('status', [self::PENDING, self::DOING, self::WAITING])->where('kind', '!=', 'ruido');
     }
 
     /** Correos que piden algo: responder o alguna acción. */

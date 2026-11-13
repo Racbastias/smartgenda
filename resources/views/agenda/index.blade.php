@@ -104,7 +104,7 @@
                     });
                     this.calendar.render();
                     // Trae cambios cada 2 minutos (el servidor sincroniza las agendas cada 2 minutos)
-                    setInterval(() => document.visibilityState === 'visible' && this.calendar.refetchEvents(), 120000);
+                    sgAutoRefresh(() => this.calendar.refetchEvents());
                 },
                 buildStrip(center) {
                     const days = [];

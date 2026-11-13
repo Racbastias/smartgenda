@@ -67,6 +67,9 @@ return [
 
     'timezone' => 'UTC',
 
+    // Zona horaria de la jornada laboral (frecuencia de revisión del correo y la agenda)
+    'work_timezone' => env('WORK_TIMEZONE', 'America/Santiago'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration

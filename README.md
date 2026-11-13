@@ -26,7 +26,7 @@ Smartgenda inicia sesión en la API de Zimbra con la contraseña y el código de
 
 ## Resumen de correos
 
-En **Integraciones**, las cuentas de Zimbra y de Google (Gmail) tienen el botón **Resumir correo**. Al activarlo, cada 2 minutos Smartgenda lee los correos nuevos de la bandeja de entrada (la primera vez, los de los últimos 3 días) y anota en **Pendientes** lo que piden. Cada acción se marca como hecha, se descarta o se agenda (abre el formulario de evento con el título y la fecha). El cuerpo del correo no se guarda.
+En **Integraciones**, las cuentas de Zimbra y de Google (Gmail) tienen el botón **Resumir correo**. Al activarlo, Smartgenda lee los correos nuevos de la bandeja de entrada (la primera vez, los de los últimos 3 días) y los ordena en **Tu acción** (te piden algo), **Para leer** (no piden nada pero conviene verlo), **En copia** (estás en copia y no te involucra) o los oculta si son boletines. Cada acción puede quedar Pendiente, En curso o Esperando respuesta (pasa a **Seguimiento**), marcarse como hecha, descartarse o agendarse. El cuerpo del correo no se guarda.
 
 Hay dos modos:
 
@@ -66,7 +66,7 @@ Requiere un plan con SSH (Business sirve) y PHP 8.3 en hPanel → Avanzado → C
 4. Abrir el sitio: la primera pantalla pide crear el usuario administrador.
 5. hPanel → Avanzado → Cron Jobs, cada minuto:
    `cd ~/domains/<tu-sitio>/smartgenda && php artisan schedule:run`
-   (sincroniza las agendas y revisa el correo cada 2 minutos; las pantallas Hoy y Agenda se refrescan solas cada 2 minutos).
+   (sincroniza las agendas y revisa el correo cada minuto de lunes a viernes entre 08:30 y 18:00, hora de Chile, y una vez por hora fuera de ese horario; las pantallas Hoy y Agenda se refrescan con la misma frecuencia). La zona horaria de la jornada se cambia con `WORK_TIMEZONE`.
 
 Desde ahí, cada push a `main` con tests en verde se publica solo. El `.env` y la base de datos del servidor no se tocan en los deploys siguientes. Para usar MySQL en vez de SQLite, editar `DB_*` en el `.env` del servidor.
 

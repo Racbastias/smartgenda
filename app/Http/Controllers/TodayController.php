@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Calendar\ConflictDetector;
 use App\Models\EmailItem;
 use App\Models\Event;
+use App\Support\Assistant;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -27,16 +28,31 @@ class TodayController extends Controller
         $conflicts = $detector->detect($events);
         [$allDay, $timed] = $events->partition(fn (Event $e) => $e->all_day);
 
-        $tasks = $user->emailItems()->with('account:id,name,color,provider')
-            ->where('status', EmailItem::PENDING)->actionable()
+        $tasks = $user->emailItems()->with('account:id,name,color,provider,server_url,username')
+            ->open()
             ->orderByRaw("case priority when 'alta' then 0 when 'media' then 1 else 2 end")
             ->orderByRaw('due_on is null')->orderBy('due_on')
             ->orderByDesc('received_at')
-            ->limit(100)->get();
+            ->limit(150)->get();
 
         [$startHour, $endHour] = $this->hourRange($timed, $tz, $day);
 
+        $now = CarbonImmutable::now($tz);
+        $next = $timed->first(fn (Event $e) => $e->starts_at->greaterThan($now));
+        $counts = [
+            'accion' => $tasks->where('kind', 'accion')->where('status', '!=', EmailItem::WAITING)->count(),
+            'alta' => $tasks->where('kind', 'accion')->where('priority', 'alta')->where('status', '!=', EmailItem::WAITING)->count(),
+            'seguimiento' => $tasks->where('status', EmailItem::WAITING)->count(),
+            'leer' => $tasks->where('kind', 'leer')->count(),
+        ];
+        $workHours = Assistant::workHours();
+        $greeting = Assistant::greeting($user->name, $now, $counts,
+            $day->isSameDay($now) && $next ? ['title' => $next->title, 'time' => $next->starts_at->setTimezone($tz)->format('H:i')] : null,
+            $workHours);
+
         return view('today.index', [
+            'greeting' => $greeting,
+            'workHours' => $workHours,
             'day' => $day,
             'tz' => $tz,
             'allDay' => $allDay->values(),
