@@ -52,6 +52,8 @@ class TodayController extends Controller
 
         return view('today.index', [
             'greeting' => $greeting,
+            'stats' => $counts,
+            'nextEvent' => $day->isSameDay($now) ? $next : null,
             'workHours' => $workHours,
             'day' => $day,
             'tz' => $tz,
