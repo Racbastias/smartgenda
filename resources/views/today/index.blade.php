@@ -151,7 +151,8 @@
                             <div class="task-meta">
                                 <span class="badge" style="--cal-color: {{ $task->account->color }}"><span class="dot"></span>{{ $task->account->name }}</span>
                                 @if ($isAction && $task->priority === 'alta')<span class="badge badge-alert"><x-icon name="flame"/>Alta</span>@endif
-                                @if ($task->needs_reply)<span class="badge badge-blue"><x-icon name="reply"/>Responder</span>@endif
+                                @if ($task->resolution === 'awaiting' && $task->resolved_at)<span class="badge badge-blue" title="Se cierra solo cuando te respondan"><x-icon name="reply"/>Respondiste {{ $task->resolved_at->setTimezone($tz)->locale('es')->isoFormat('ddd D MMM') }} · esperas su respuesta</span>
+                                @elseif ($task->needs_reply)<span class="badge badge-blue"><x-icon name="reply"/>Responder</span>@endif
                                 @if ($task->in_copy)<span class="badge"><x-icon name="copy"/>En copia</span>@endif
                                 @if ($task->due_on)<span class="task-due tnum"><x-icon name="clock"/>Vence {{ $task->due_on->locale('es')->isoFormat('ddd D MMM') }}</span>@endif
                                 @if ($isAction)
@@ -218,6 +219,8 @@
                                             <span class="dot"></span> {{ $r->account->name }} · {{ $r->from_name ?: $r->from_email }} ·
                                             @if ($r->resolution === 'replied')
                                                 <b class="resolved-why"><x-icon name="reply"/>Respondiste {{ $r->resolved_at->setTimezone($tz)->locale('es')->isoFormat('ddd D MMM, HH:mm') }}</b>
+                                            @elseif ($r->resolution === 'answered')
+                                                <b class="resolved-why"><x-icon name="reply"/>Te respondieron</b>
                                             @elseif ($r->resolution === 'scheduled')
                                                 <b class="resolved-why"><x-icon name="calendar"/>Quedó agendado{{ $r->resolvedEvent ? ': '.$r->resolvedEvent->title.' · '.$r->resolvedEvent->starts_at->setTimezone($tz)->locale('es')->isoFormat($r->resolvedEvent->all_day ? 'ddd D MMM' : 'ddd D MMM, HH:mm') : '' }}</b>
                                             @else

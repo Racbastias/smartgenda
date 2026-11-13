@@ -132,6 +132,15 @@ class InboxDigest
             'resolved_at' => $message->replied ? now() : null,
         ]);
 
+        // Te respondieron: lo que estaba esperando respuesta en esa conversación se cierra
+        if ($message->conversationId) {
+            $account->emailItems()->where('conversation_id', $message->conversationId)
+                ->where('remote_id', '!=', $message->remoteId)
+                ->where('status', EmailItem::WAITING)
+                ->where('received_at', '<', $message->receivedAt)
+                ->update(['status' => EmailItem::DONE, 'resolution' => 'answered', 'resolved_at' => now()]);
+        }
+
         // Un correo nuevo que pide algo en la misma conversación reemplaza a los anteriores
         if ($message->conversationId && $summary->category === 'accion' && ! $message->replied) {
             $account->emailItems()->where('conversation_id', $message->conversationId)

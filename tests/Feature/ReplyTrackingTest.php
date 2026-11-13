@@ -54,9 +54,10 @@ class ReplyTrackingTest extends TestCase
         ]);
     }
 
-    private function sent(string $cid, string $subject, string $to, string $when): array
+    private function sent(string $cid, string $subject, string $to, string $when, string $text = 'Listo, gracias.', string $flags = ''): array
     {
         return ['id' => 's'.crc32($cid.$subject.$when), 'cid' => $cid, 'su' => $subject, 'd' => CarbonImmutable::parse($when)->getTimestampMs(),
+            'fr' => $text, 'f' => $flags,
             'e' => [['a' => 'ruben@aminfo.cl', 't' => 'f'], ['a' => $to, 't' => 't']]];
     }
 
@@ -120,5 +121,43 @@ class ReplyTrackingTest extends TestCase
     {
         $this->assertSame('elige un horario', ReplyTracker::subject('RE: RV:  [EXTERNAL] Elige   un horario'));
         $this->assertSame('cotización', ReplyTracker::subject('Fwd: Re[2]: Cotización'));
+    }
+
+    public function test_si_enviaste_una_cotizacion_queda_esperando_respuesta(): void
+    {
+        $account = $this->account();
+        $cotizacion = $this->item($account, ['subject' => 'Solicitud de cotización']);
+        $adjunto = $this->item($account, ['remote_id' => '200', 'conversation_id' => '-200', 'subject' => 'Datos', 'from_email' => 'ana@cliente.cl']);
+        $listo = $this->item($account, ['remote_id' => '300', 'conversation_id' => '-300', 'subject' => 'Aviso', 'from_email' => 'juan@cliente.cl']);
+        $this->box['sent'] = [
+            $this->sent('-100', 'RE: Solicitud de cotización', 'agenda@ctec.cl', '2026-11-13 18:30', 'Hola, te envío la cotización. Quedo atento a tus comentarios.'),
+            $this->sent('-200', 'RE: Datos', 'ana@cliente.cl', '2026-11-13 18:40', 'Ahí va.', 'sa'),
+            $this->sent('-300', 'RE: Aviso', 'juan@cliente.cl', '2026-11-13 18:50', 'Gracias, recibido.'),
+        ];
+
+        app(ReplyTracker::class)->reconcile($account);
+
+        $this->assertSame(['waiting', 'awaiting'], [$cotizacion->fresh()->status, $cotizacion->fresh()->resolution]);
+        $this->assertSame('waiting', $adjunto->fresh()->status);
+        $this->assertSame(['done', 'replied'], [$listo->fresh()->status, $listo->fresh()->resolution]);
+
+        // Sigue a la vista como seguimiento; en «Cerrados solos» solo queda el que terminó
+        $this->actingAs($account->user)->get('/')->assertSee('esperas su respuesta')->assertSee('1 en los últimos 7 días');
+    }
+
+    public function test_cuando_te_responden_se_cierra_lo_que_esperaba_respuesta(): void
+    {
+        $account = $this->account();
+        $esperando = $this->item($account, ['status' => 'waiting', 'resolution' => 'awaiting', 'resolved_at' => now()->subHour()]);
+        $this->box['inbox'] = [[
+            'id' => '101', 'cid' => '-100', 'd' => now()->subMinute()->getTimestampMs(), 'su' => 'RE: Elige un horario para la reunión', 'fr' => 'x',
+            'e' => [['a' => 'agenda@ctec.cl', 'p' => 'CTEC', 't' => 'f'], ['a' => 'ruben@aminfo.cl', 't' => 't']],
+            'mp' => [['ct' => 'text/plain', 'body' => true, 'content' => 'Aprobada la cotización, gracias.']],
+        ]];
+
+        app(InboxDigest::class)->run($account);
+
+        $this->assertSame(['done', 'answered'], [$esperando->fresh()->status, $esperando->fresh()->resolution]);
+        $this->actingAs($account->user)->get('/')->assertSee('Te respondieron');
     }
 }

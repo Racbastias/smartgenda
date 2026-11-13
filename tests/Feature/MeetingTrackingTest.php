@@ -2,6 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Calendar\CalendarProvider;
+use App\Calendar\CalendarSync;
+use App\Calendar\EventData;
+use App\Calendar\ProviderRegistry;
 use App\Calendar\Providers\CalDavProvider;
 use App\Calendar\Providers\GoogleProvider;
 use App\Inbox\MeetingTracker;
@@ -12,6 +16,7 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Google\Service\Calendar\Event as GoogleEvent;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Fakes\FakeCalendarProvider;
 use Tests\TestCase;
 
 class MeetingTrackingTest extends TestCase
@@ -150,5 +155,30 @@ class MeetingTrackingTest extends TestCase
         $this->assertSame(['ruben@lilienfeld-seguros.cl', 'ana@empresa.cl'], $e->attendees);
         $this->assertSame('ana@empresa.cl', $e->organizer);
         $this->assertSame('2026-11-13 18:56:41', $e->createdAt->format('Y-m-d H:i:s'));
+    }
+
+    public function test_sincronizar_la_agenda_cierra_el_pendiente_al_tiro(): void
+    {
+        $item = $this->item();
+        $this->meeting(['attendees' => null, 'organizer' => null]); // copia vieja, antes de guardar invitados
+        $google = new EventData('ev-sync', 'CTEC - Rubén Cid', CarbonImmutable::parse('2026-11-18 19:00'), CarbonImmutable::parse('2026-11-18 19:30'),
+            attendees: ['consultorias@ctecinnovacion.cl', 'gerencia@aminfo.cl'], organizer: 'consultorias@ctecinnovacion.cl',
+            createdAt: CarbonImmutable::parse('2026-11-13 18:56:41'));
+        $this->app->instance(ProviderRegistry::class, new class($google) extends ProviderRegistry
+        {
+            public function __construct(private EventData $e) {}
+
+            public function for(CalendarAccount $account): CalendarProvider
+            {
+                $fake = new FakeCalendarProvider;
+                $fake->remote = [$this->e];
+
+                return $fake;
+            }
+        });
+
+        app(CalendarSync::class)->sync($this->presto);
+
+        $this->assertSame('scheduled', $item->fresh()->resolution);
     }
 }

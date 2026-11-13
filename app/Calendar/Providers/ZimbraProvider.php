@@ -264,7 +264,8 @@ class ZimbraProvider implements CalendarProvider, MailProvider
                 break;
             }
             $recipients = collect($m['e'] ?? [])->whereIn('t', ['t', 'c'])->pluck('a')->filter()->map(fn ($a) => mb_strtolower($a))->values()->all();
-            $sent[] = new SentMessage(isset($m['cid']) ? (string) $m['cid'] : null, $this->text($m['su'] ?? null) ?? '', $recipients, $at);
+            $sent[] = new SentMessage(isset($m['cid']) ? (string) $m['cid'] : null, $this->text($m['su'] ?? null) ?? '', $recipients, $at,
+                snippet: $this->text($m['fr'] ?? null) ?? '', hasAttachment: str_contains((string) ($m['f'] ?? ''), 'a'));
         }
 
         return $sent;
