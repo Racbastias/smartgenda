@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Calendar\DayPlan;
 use App\Models\CalendarAccount;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -48,14 +49,36 @@ class UiTest extends TestCase
         $this->actingAs($account->user)->get('/?dia=2026-11-13')->assertOk()->assertSee('Mañana');
     }
 
-    public function test_overlapping_events_get_separate_columns(): void
+    public function test_day_line_shows_free_time_and_conflicts_between_agendas(): void
     {
-        $account = CalendarAccount::factory()->create();
-        $this->event($account, 'A', '2026-11-12 09:00', '2026-11-12 10:00');
-        $this->event($account, 'B', '2026-11-12 09:30', '2026-11-12 10:30');
+        $work = CalendarAccount::factory()->create();
+        $personal = CalendarAccount::factory()->create(['user_id' => $work->user_id]);
+        $this->event($work, 'Comité', '2026-11-12 09:00', '2026-11-12 10:00');
+        $this->event($personal, 'Dentista', '2026-11-12 09:30', '2026-11-12 10:30');
+        $this->event($work, 'Almuerzo', '2026-11-12 13:00', '2026-11-12 14:00');
 
-        $html = $this->actingAs($account->user)->get('/')->getContent();
-        $this->assertStringContainsString('calc(1 * (100% - 8px) / 2 + 4px)', $html);
+        $plan = app(DayPlan::class)->build($work->user, CarbonImmutable::parse('2026-11-12', 'America/Santiago'));
+        $this->assertSame(3, $plan['stats']['meetings']);
+        $this->assertSame(2, $plan['stats']['conflicts']);
+        // 08:30–09:00 (30) + 10:30–13:00 (150) + 14:00–18:00 (240)
+        $this->assertSame(420, $plan['stats']['free']);
+
+        $this->actingAs($work->user)->get('/')->assertOk()
+            ->assertSee('Choca con otra agenda')
+            ->assertSee('2 h 30 libres');
+    }
+
+    public function test_month_agenda_shows_events_and_the_selected_day_line(): void
+    {
+        $account = CalendarAccount::factory()->create(['color' => '#D97706']);
+        $this->event($account, 'Comité de riesgos', '2026-11-20 10:00', '2026-11-20 11:30');
+
+        $this->actingAs($account->user)->get('/agenda?dia=2026-11-20')->assertOk()
+            ->assertSee('Noviembre 2026')
+            ->assertSee('Comité de riesgos')
+            ->assertSee('10:00–11:30')
+            ->assertSee('aria-current="date"', false);
+        $this->actingAs($account->user)->get('/agenda/semana')->assertOk()->assertSee('id="calendar"', false);
     }
 
     public function test_pages_render_for_a_new_user(): void

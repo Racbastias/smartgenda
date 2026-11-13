@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Calendar\CalendarSync;
 use App\Calendar\ConflictDetector;
+use App\Calendar\DayPlan;
 use App\Calendar\EventData;
 use App\Models\Event;
 use Carbon\CarbonImmutable;
@@ -15,9 +16,31 @@ use Throwable;
 
 class AgendaController extends Controller
 {
-    public function index(Request $request): View
+    /** Mes: cada día con sus reuniones de las 3 agendas, y la línea del día elegido al lado. */
+    public function index(Request $request, DayPlan $planner): View
     {
+        $user = $request->user();
+        $tz = $user->timezone ?: config('app.timezone');
+        $date = $request->date('dia', 'Y-m-d', $tz) ?? CarbonImmutable::now($tz);
+        $day = CarbonImmutable::instance($date)->setTimezone($tz)->startOfDay();
+        $month = $day->startOfMonth();
+        $gridStart = $month->startOfWeek(CarbonImmutable::MONDAY);
+        $gridEnd = $month->endOfMonth()->endOfWeek(CarbonImmutable::SUNDAY)->addDay()->startOfDay();
+
         return view('agenda.index', [
+            'accounts' => $user->calendarAccounts()->orderBy('name')->get(),
+            'tz' => $tz,
+            'day' => $day,
+            'month' => $month,
+            'days' => $planner->summaries($user, $gridStart, $gridEnd),
+            'plan' => $planner->build($user, $day),
+        ]);
+    }
+
+    /** Semana con horas (FullCalendar). */
+    public function week(Request $request): View
+    {
+        return view('agenda.week', [
             'accounts' => $request->user()->calendarAccounts()->orderBy('name')->get(),
         ]);
     }

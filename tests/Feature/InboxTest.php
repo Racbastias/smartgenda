@@ -295,7 +295,7 @@ class InboxTest extends TestCase
             'summary' => 'Hilo en copia', 'kind' => 'copia', 'in_copy' => true, 'actions' => []]);
 
         $this->actingAs($account->user)->get('/')->assertOk()
-            ->assertSee('Tu acción')->assertSee('Seguimiento')->assertSee('Para leer')->assertSee('En copia')
+            ->assertSee('Tu acción')->assertSee('En seguimiento')->assertSee('Para leer')->assertSee('En copia')
             ->assertSee('Renovar póliza')->assertSee('Cambio de tarifas')->assertSee('Coordinación interna');
 
         // Seguimiento: queda esperando respuesta y sigue visible en Hoy

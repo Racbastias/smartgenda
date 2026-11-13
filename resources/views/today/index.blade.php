@@ -1,11 +1,4 @@
 @php
-    $px = 56 / 60; // alto de un minuto en la línea de tiempo
-    $detail = fn ($e) => [
-        'id' => $e->id, 'title' => $e->title, 'agenda' => $e->calendarAccount->name, 'color' => $e->calendarAccount->color,
-        'location' => $e->location, 'description' => $e->description,
-        'when' => ucfirst($e->starts_at->setTimezone($tz)->locale('es')->isoFormat('dddd D [de] MMMM')).' · '
-            .($e->all_day ? 'todo el día' : $e->starts_at->setTimezone($tz)->format('H:i').'–'.$e->ends_at->setTimezone($tz)->format('H:i')),
-    ];
     $isToday = $day->isSameDay(now($tz));
     $items = $tasks->map(fn ($t) => ['id' => $t->id, 'kind' => $t->kind, 'status' => $t->status, 'priority' => $t->priority, 'provider' => $t->account->provider])->values();
     $kinds = [
@@ -17,7 +10,7 @@
     $statuses = ['pending' => 'Pendiente', 'doing' => 'En curso', 'waiting' => 'Esperando respuesta'];
 @endphp
 <x-app-layout title="Hoy">
-    <div x-data="todayPage({ startHour: {{ $startHour }}, isToday: @js($isToday), day: @js($day->toDateString()), items: @js($items), workHours: @js($workHours) })" x-on:sg:event-saved.window="location.reload()">
+    <div x-data="todayPage({ isToday: @js($isToday), day: @js($day->toDateString()), items: @js($items), doneToday: {{ $doneToday }} })" x-on:sg:event-saved.window="location.reload()">
         <header class="hero">
             <div class="hero-top">
                 <div style="min-width:0">
@@ -35,56 +28,53 @@
                     <button class="btn btn-primary hide-mobile" type="button" x-on:click="newAt()"><x-icon name="plus"/> Nuevo evento</button>
                 </div>
             </div>
-            <div class="stats">
-                <button type="button" class="stat" x-on:click="tab = 'accion'; filter = 'all'; pane = 'tasks'">
-                    <div class="stat-label">Tu acción</div>
-                    <div class="stat-value" :class="count('accion') && 'is-amber'"><span class="mark" :class="count('accion') ? 'mark-tri' : 'mark-dot'" :style="!count('accion') && 'background:#4ADE80'"></span><span x-text="count('accion')">{{ $stats['accion'] }}</span></div>
-                </button>
-                <button type="button" class="stat" x-on:click="tab = 'accion'; filter = 'alta'; pane = 'tasks'">
-                    <div class="stat-label">Prioridad alta</div>
-                    <div class="stat-value" :class="altaCount && 'is-red'"><span class="mark mark-dot" :style="`background:${altaCount ? '#E5533A' : '#4ADE80'}`"></span><span x-text="altaCount">{{ $stats['alta'] }}</span></div>
-                </button>
-                <button type="button" class="stat" x-on:click="tab = 'seguimiento'; filter = 'all'; pane = 'tasks'">
-                    <div class="stat-label">En seguimiento</div>
-                    <div class="stat-value" :class="count('seguimiento') && 'is-purple'"><x-icon name="hourglass" style="width:26px;height:26px;color:#A78BFA"/><span x-text="count('seguimiento')">{{ $stats['seguimiento'] }}</span></div>
-                </button>
-                <button type="button" class="stat" x-on:click="pane = 'timeline'">
-                    <div class="stat-label">{{ $isToday ? 'Próxima reunión' : 'Reuniones del día' }}</div>
-                    @if ($isToday && $nextEvent)
-                        <div class="stat-value is-small tnum">{{ $nextEvent->starts_at->setTimezone($tz)->format('H:i') }}</div>
-                        <div class="stat-sub">{{ $nextEvent->title }} · {{ $nextEvent->calendarAccount->name }}</div>
-                    @elseif ($isToday)
-                        <div class="stat-value is-small">Libre</div>
-                        <div class="stat-sub">Sin más reuniones hoy</div>
-                    @else
-                        <div class="stat-value">{{ count($timed) }}</div>
-                        <div class="stat-sub">{{ count($timed) === 1 ? 'reunión agendada' : 'reuniones agendadas' }}</div>
-                    @endif
-                </button>
-            </div>
         </header>
 
         <div class="segmented show-mobile" style="margin-bottom:12px" role="group" aria-label="Vista">
-            <button type="button" :aria-pressed="pane === 'tasks'" x-on:click="pane = 'tasks'">Pendientes <span class="muted" x-text="count('accion')"></span></button>
-            <button type="button" :aria-pressed="pane === 'timeline'" x-on:click="pane = 'timeline'">Timeline</button>
+            <button type="button" :aria-pressed="pane === 'tasks'" x-on:click="pane = 'tasks'">Correo <span class="muted" x-text="count('accion')"></span></button>
+            <button type="button" :aria-pressed="pane === 'timeline'" x-on:click="pane = 'timeline'">Tu día</button>
         </div>
 
         <div class="today">
             {{-- Pendientes del correo --}}
             <section class="inbox" data-pane="tasks" :class="pane === 'tasks' && 'is-active'" aria-label="Tu bandeja">
                 <div class="section-head">
-                    <h2>Tu bandeja</h2>
-                    <div class="legend hide-mobile">
-                        <span class="refresh-note"><x-icon name="clock"/>{{ $workHours ? 'Revisando cada minuto' : 'Revisando cada hora (fuera de horario)' }}</span>
-                        <span><span class="mark mark-tri" style="border-bottom-width:10px;border-left-width:6px;border-right-width:6px"></span>Te piden algo</span>
-                        <span><span class="mark mark-dot" style="width:10px;height:10px;background:var(--accent)"></span>Prioridad alta</span>
-                    </div>
+                    <h2>Tu bandeja<span class="stop">.</span></h2>
+                    <span class="refresh-note"><x-icon name="clock"/>{{ $workHours ? 'Revisando cada minuto' : 'Revisando cada hora (fuera de horario)' }}</span>
                 </div>
-                <div class="tabs" role="tablist">
-                    @foreach ($kinds as $key => [$label, $icon])
-                        <button class="tab" data-kind="{{ $key }}" type="button" role="tab" :aria-selected="tab === '{{ $key }}'" x-on:click="tab = '{{ $key }}'"><x-icon :name="$icon"/>{{ $label }}<span class="count tnum" x-text="count('{{ $key }}')"></span></button>
-                    @endforeach
+                <div class="widgets" role="tablist" aria-label="Bandejas">
+                    <button type="button" role="tab" class="widget widget-hero" :aria-selected="tab === 'accion'" x-on:click="tab = 'accion'">
+                        <svg class="ring" viewBox="0 0 100 100" role="img" :aria-label="`${doneToday} listas de ${doneToday + count('accion')}`">
+                            <circle cx="50" cy="50" r="42" class="ring-bg"/>
+                            <circle cx="50" cy="50" r="42" class="ring-fg" :style="`stroke-dasharray:${ringDash} 264`"/>
+                            <text x="50" y="57" text-anchor="middle" x-text="`${doneToday}/${doneToday + count('accion')}`"></text>
+                        </svg>
+                        <span class="widget-text">
+                            <span class="widget-label"><x-icon name="zap"/>Tu acción</span>
+                            <span class="widget-big" x-text="count('accion') === 1 ? '1 por hacer' : `${count('accion')} por hacer`"></span>
+                            <span class="widget-sub" x-text="altaCount ? `${altaCount} con prioridad alta: parte por ahí` : (count('accion') ? 'Nada urgente por ahora' : 'Todo al día')"></span>
+                        </span>
+                    </button>
+                    <button type="button" role="tab" class="widget" data-kind="seguimiento" :aria-selected="tab === 'seguimiento'" x-on:click="tab = 'seguimiento'">
+                        <span class="widget-icon is-purple"><x-icon name="hourglass"/></span>
+                        <span class="widget-label">En seguimiento</span>
+                        <span class="widget-num tnum" x-text="count('seguimiento')"></span>
+                        <span class="widget-sub">Esperando respuesta</span>
+                    </button>
+                    <button type="button" role="tab" class="widget" data-kind="leer" :aria-selected="tab === 'leer'" x-on:click="tab = 'leer'">
+                        <span class="widget-icon is-blue"><x-icon name="eye"/></span>
+                        <span class="widget-label">Para leer</span>
+                        <span class="widget-num tnum" x-text="count('leer')"></span>
+                        <span class="widget-sub">Conviene verlos</span>
+                    </button>
+                    <button type="button" role="tab" class="widget" data-kind="copia" :aria-selected="tab === 'copia'" x-on:click="tab = 'copia'">
+                        <span class="widget-icon is-gray"><x-icon name="copy"/></span>
+                        <span class="widget-label">En copia</span>
+                        <span class="widget-num tnum" x-text="count('copia')"></span>
+                        <span class="widget-sub">Solo si hay tiempo</span>
+                    </button>
                 </div>
+                <div class="inbox-list">
                 <div class="chips" role="group" aria-label="Filtrar">
                     <button class="chip" type="button" :aria-pressed="filter === 'all'" x-on:click="filter = 'all'">Todas</button>
                     <button class="chip" type="button" :aria-pressed="filter === 'alta'" x-on:click="filter = 'alta'"><x-icon name="flame"/>Alta prioridad</button>
@@ -164,43 +154,14 @@
                 @if ($tasks->isNotEmpty())
                     <div class="empty" x-show="!anyVisible" x-cloak><x-icon name="sparkles"/><span x-text="emptyText"></span></div>
                 @endif
-            </section>
-
-            {{-- Línea de tiempo del día --}}
-            <section class="card agenda-card" data-pane="timeline" :class="pane === 'timeline' && 'is-active'" aria-label="Línea de tiempo">
-                <div class="card-head"><h2>Agenda del día</h2><a class="btn btn-ghost btn-sm" href="{{ route('agenda') }}">Ver semana</a></div>
-                @if ($allDay->isNotEmpty())
-                    <div class="allday">
-                        @foreach ($allDay as $event)
-                            <span class="ev chip-ev" role="button" tabindex="0" x-on:click="sgShowEvent(@js($detail($event)))" style="--cal-color: {{ $event->calendarAccount->color }}" title="{{ $event->calendarAccount->name }}">{{ $event->title }}</span>
-                        @endforeach
-                    </div>
-                @endif
-                <div class="timeline" style="padding:12px 12px 16px 0">
-                    <div class="tl-grid" x-ref="grid">
-                        @for ($h = $startHour; $h < $endHour; $h++)
-                            <div class="tl-hour" x-on:click="slot({{ $h }}, $event)" title="Agendar a las {{ sprintf('%02d', $h) }}:00">
-                                <span class="tl-label tnum">{{ sprintf('%02d:00', $h) }}</span>
-                            </div>
-                        @endfor
-                        @foreach ($timed as $item)
-                            @php($e = $item['event'])
-                            <div @class(['ev', 'tl-event', 'is-short' => $item['height'] < 45, 'is-conflict' => isset($conflicts[$e->id])]) role="button" tabindex="0" x-on:click="sgShowEvent(@js($detail($e)))"
-                                 style="--cal-color: {{ $e->calendarAccount->color }}; top: {{ round($item['top'] * $px) }}px; height: {{ round($item['height'] * $px) - 2 }}px;
-                                        left: calc({{ $item['lane'] }} * (100% - 8px) / {{ $item['lanes'] }} + 4px); width: calc((100% - 8px) / {{ $item['lanes'] }} - 4px);"
-                                 title="{{ $e->title }} · {{ $e->calendarAccount->name }}{{ isset($conflicts[$e->id]) ? ' · ⚠ choca con otra agenda' : '' }}">
-                                <strong>{{ isset($conflicts[$e->id]) ? '⚠ ' : '' }}{{ $e->title }}</strong>
-                                <span class="tnum muted">{{ $e->starts_at->setTimezone($tz)->format('H:i') }}–{{ $e->ends_at->setTimezone($tz)->format('H:i') }}</span>
-                                @if ($e->location && $item['height'] >= 50)<div class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ $e->location }}</div>@endif
-                            </div>
-                        @endforeach
-                        <div class="tl-now" x-show="nowTop !== null" :style="`top:${nowTop}px`" x-cloak></div>
-                    </div>
-                    @if ($timed === [] && $allDay->isEmpty())
-                        <p class="muted small" style="padding:8px 0 0 52px">Sin eventos. Haz clic en una hora para agendar.</p>
-                    @endif
                 </div>
             </section>
+
+            {{-- Línea del día (las 3 agendas) --}}
+            <div class="today-side" data-pane="timeline" :class="pane === 'timeline' && 'is-active'">
+                <x-day-line :plan="$plan" :tz="$tz" :link="fn ($d) => route('today', ['dia' => $d->toDateString()])"/>
+                <a class="btn btn-ghost btn-sm" href="{{ route('agenda', ['dia' => $day->toDateString()]) }}" style="margin-top:10px"><x-icon name="calendar"/> Ver el mes</a>
+            </div>
         </div>
 
         {{-- Responder un correo --}}
@@ -229,9 +190,10 @@
     <x-slot:scripts>
     <script>
         document.addEventListener('alpine:init', () => {
-            Alpine.data('todayPage', ({ startHour, isToday, day, items, workHours }) => ({
+            Alpine.data('todayPage', ({ isToday, day, items, doneToday }) => ({
+                doneToday,
                 tab: sessionStorage.getItem('sg.kind') || 'accion', filter: sessionStorage.getItem('sg.filter') || 'all',
-                pane: sessionStorage.getItem('sg.pane') || 'tasks', gone: {}, nowTop: null,
+                pane: sessionStorage.getItem('sg.pane') || 'tasks', gone: {},
                 state: Object.fromEntries(items.map(i => [i.id, i.status])),
                 kind: Object.fromEntries(items.map(i => [i.id, i.kind])),
                 init() {
@@ -244,12 +206,6 @@
                         if (window.sgModalOpen || document.querySelector('.menu-list:not([style*="none"])')) return false;
                         location.reload();
                     });
-                    const tick = () => {
-                        const n = new Date();
-                        const minutes = (n.getHours() - startHour) * 60 + n.getMinutes();
-                        this.nowTop = isToday && minutes >= 0 && minutes <= this.$refs.grid.offsetHeight / (56 / 60) ? Math.round(minutes * 56 / 60) : null;
-                    };
-                    tick(); setInterval(tick, 60000);
                 },
                 bucket(i) {
                     if (this.state[i.id] === 'waiting') return 'seguimiento';
@@ -264,6 +220,7 @@
                     return !this.gone[id] && this.bucket(i) === this.tab && this.matches(i);
                 },
                 get altaCount() { return items.filter(i => !this.gone[i.id] && this.state[i.id] !== 'done' && this.bucket(i) === 'accion' && i.priority === 'alta').length; },
+                get ringDash() { const total = this.doneToday + this.count('accion'); return total ? Math.round(264 * this.doneToday / total) : 0; },
                 get anyVisible() { return items.some(i => this.shows(i.id)); },
                 get emptyText() {
                     return { accion: 'Nada esperando tu acción. Buen momento para adelantar lo importante.',
@@ -317,15 +274,12 @@
                     const before = this.state[id];
                     const now = before === 'done' ? 'pending' : 'done';
                     this.state[id] = now;
+                    this.doneToday += now === 'done' ? 1 : -1;
                     const res = await sgFetch(url, 'PATCH', { status: now });
                     if (!res.ok) this.state[id] = before;
                 },
                 at(h, m = 0) { const d = new Date(`${day}T00:00`); d.setHours(h, m); return d; },
                 newAt() { sgNewEvent(isToday ? {} : { start: this.at(9) }); },
-                slot(h, e) {
-                    const m = e.offsetY > e.currentTarget.offsetHeight / 2 ? 30 : 0;
-                    sgNewEvent({ start: this.at(h, m), end: this.at(h, m + 60) });
-                },
                 schedule(title, due, notes) {
                     const start = due ? new Date(`${due}T09:00`) : undefined;
                     sgNewEvent({ title, notes, start, end: start && new Date(start.getTime() + 3600000) });

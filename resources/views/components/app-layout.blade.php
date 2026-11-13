@@ -3,7 +3,7 @@
     $user = auth()->user();
     $nav = [
         ['today', 'Hoy', 'today', 'today'],
-        ['agenda', 'Agenda', 'calendar', 'agenda'],
+        ['agenda', 'Agenda', 'calendar', 'agenda*'],
         ['accounts.index', 'Integraciones', 'plug', 'accounts.*'],
     ];
 @endphp
