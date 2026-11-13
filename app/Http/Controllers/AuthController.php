@@ -40,7 +40,7 @@ class AuthController extends Controller
         Auth::login(User::create($data + ['is_admin' => true]));
         $request->session()->regenerate();
 
-        return redirect()->route('accounts.index')->with('status', 'Listo. Ahora conecta tus agendas.');
+        return redirect()->route('accounts.index')->with('status', 'Listo. Ahora conecta tus agendas.')->with('welcome', true);
     }
 
     public function login(Request $request): RedirectResponse
@@ -56,7 +56,7 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('today'));
+        return redirect()->intended(route('today'))->with('welcome', true);
     }
 
     public function logout(Request $request): RedirectResponse

@@ -61,6 +61,23 @@ class AgendaTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
+    public function test_welcome_shows_once_after_login(): void
+    {
+        $user = User::factory()->create(['name' => 'Rubén Bastías']);
+        $this->followingRedirects()
+            ->post('/login', ['email' => $user->email, 'password' => 'password'])
+            ->assertSee('id="sg-welcome"', false)
+            ->assertSee('Rubén<i>.</i>', false);
+
+        $this->get('/')->assertDontSee('id="sg-welcome"', false);
+    }
+
+    public function test_login_page_has_new_face(): void
+    {
+        User::factory()->create();
+        $this->get('/login')->assertOk()->assertSee('Tu día,', false)->assertSee('guest-card', false);
+    }
+
     public function test_events_from_all_my_agendas_with_conflicts_and_nobody_elses(): void
     {
         $user = User::factory()->create();
