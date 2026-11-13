@@ -254,7 +254,8 @@
                     // Barra compacta: visible cuando el saludo ya salió de la pantalla
                     const hero = this.$root.querySelector('.hero');
                     let ticking = false;
-                    const check = () => { this.quick = hero.getBoundingClientRect().bottom < 8; ticking = false; };
+                    const top = () => (document.querySelector('.topbar')?.offsetHeight || 0) + 8;
+                    const check = () => { this.quick = hero.getBoundingClientRect().bottom < top(); ticking = false; };
                     window.addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(check); } }, { passive: true });
                     check();
                     // Se actualiza sola: cada minuto en horario laboral, cada hora fuera de él
@@ -268,7 +269,8 @@
                     this.tab = kind; this.pane = 'tasks';
                     this.$nextTick(() => {
                         const el = this.$root.querySelector('.inbox');
-                        window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 64, behavior: 'smooth' });
+                        const bar = this.$root.querySelector('.quickbar').getBoundingClientRect();
+                        window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - (bar.bottom + 12), behavior: 'smooth' });
                     });
                 },
                 bucket(i) {
