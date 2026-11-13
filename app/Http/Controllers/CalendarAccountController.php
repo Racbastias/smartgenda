@@ -7,6 +7,7 @@ use App\Calendar\ProviderRegistry;
 use App\Calendar\Providers\GoogleProvider;
 use App\Calendar\Providers\ZimbraProvider;
 use App\Models\CalendarAccount;
+use App\Support\Signature;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -96,9 +97,13 @@ class CalendarAccountController extends Controller
             'calendar_ref' => ['sometimes', 'string', 'max:500'],
             'is_default' => ['sometimes', 'boolean'],
             'mail_enabled' => ['sometimes', 'boolean'],
+            'signature_html' => ['sometimes', 'nullable', 'string', 'max:20000'],
         ]);
-        if (isset($data['mail_enabled']) && ! $account->supportsMail()) {
-            unset($data['mail_enabled']);
+        if (! $account->supportsMail()) {
+            unset($data['mail_enabled'], $data['signature_html']);
+        }
+        if (array_key_exists('signature_html', $data)) {
+            $data['signature_html'] = Signature::clean($data['signature_html']);
         }
 
         if (! empty($data['is_default'])) {
@@ -112,7 +117,11 @@ class CalendarAccountController extends Controller
             $this->sync->sync($account);
         }
 
-        return redirect()->route('accounts.index')->with('status', "Agenda «{$account->name}» actualizada.");
+        $msg = array_key_exists('signature_html', $data)
+            ? ($data['signature_html'] ? "Firma de «{$account->name}» guardada." : "Firma de «{$account->name}» quitada.")
+            : "Agenda «{$account->name}» actualizada.";
+
+        return redirect()->route('accounts.index')->with('status', $msg);
     }
 
     /** Zimbra: ingresar un código nuevo (y opcionalmente la contraseña) cuando la sesión de confianza vence. */

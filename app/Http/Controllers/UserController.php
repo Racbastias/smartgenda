@@ -30,6 +30,15 @@ class UserController extends Controller
         return back()->with('status', "Usuario {$data['email']} creado.");
     }
 
+    /** El administrador asigna una contraseña nueva (por ejemplo, si alguien la olvidó). */
+    public function password(Request $request, User $user): RedirectResponse
+    {
+        $data = $request->validate(['password' => ['required', Password::min(10)]]);
+        $user->forceFill(['password' => $data['password'], 'remember_token' => null])->save();
+
+        return back()->with('status', "Contraseña de {$user->name} cambiada. Compártela por un canal seguro y pídele que la cambie en Mi cuenta.");
+    }
+
     public function destroy(Request $request, User $user): RedirectResponse
     {
         abort_if($user->is($request->user()), 422, 'No puedes eliminar tu propio usuario.');

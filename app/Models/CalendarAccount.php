@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'color', 'provider', 'server_url', 'username', 'secret', 'calendar_ref', 'is_default', 'mail_enabled'])]
+#[Fillable(['name', 'color', 'provider', 'server_url', 'username', 'secret', 'calendar_ref', 'is_default', 'mail_enabled', 'signature_html'])]
 #[Hidden(['secret'])]
 class CalendarAccount extends Model
 {

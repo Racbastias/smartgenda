@@ -10,3 +10,6 @@ $toca = fn (): bool => Assistant::workHours() || Carbon::now(config('app.work_ti
 
 Schedule::command('agenda:sync')->everyMinute()->when($toca)->withoutOverlapping();
 Schedule::command('correo:resumir')->everyMinute()->when($toca)->withoutOverlapping();
+
+// Aviso de reuniones (siempre cada minuto: es solo una consulta a la base)
+Schedule::command('agenda:avisar')->everyMinute()->withoutOverlapping();

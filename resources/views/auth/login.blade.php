@@ -7,7 +7,10 @@
         @csrf
         <label class="field"><span>Correo</span><input class="input" name="email" type="email" value="{{ old('email') }}" autocomplete="username" required autofocus></label>
         <label class="field"><span>Contraseña</span><input class="input" name="password" type="password" autocomplete="current-password" required></label>
-        <label class="check"><input type="checkbox" name="remember" value="1"> Recordarme en este equipo</label>
+        <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+            <label class="check"><input type="checkbox" name="remember" value="1"> Recordarme en este equipo</label>
+            <a class="guest-link" href="{{ route('password.request') }}">¿Olvidaste tu contraseña?</a>
+        </div>
         <button class="btn btn-primary btn-lg">Entrar</button>
     </form>
 </x-guest-layout>
