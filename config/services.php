@@ -44,7 +44,7 @@ return [
     // Resúmenes de correo con IA (opcional; sin clave se usan reglas simples)
     'anthropic' => [
         'key' => env('ANTHROPIC_API_KEY'),
-        'model' => env('ANTHROPIC_MODEL', 'claude-opus-5-5'),
+        'model' => env('ANTHROPIC_MODEL', 'claude-haiku-5-5'),
     ],
 
 ];
