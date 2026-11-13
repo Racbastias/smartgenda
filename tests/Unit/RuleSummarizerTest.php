@@ -20,7 +20,7 @@ class RuleSummarizerTest extends TestCase
             body: $body, replied: $opts['replied'] ?? false, directlyAddressed: $opts['to'] ?? true, bulk: $opts['bulk'] ?? false,
         );
 
-        return (new RuleSummarizer)->summarize(new User(['timezone' => 'America/Santiago']), [$m])['1'];
+        return (new RuleSummarizer)->summarize(new User(['name' => 'Rubén Bastías', 'timezone' => 'America/Santiago']), [$m])['1'];
     }
 
     public function test_detects_requests_and_dates_ignoring_greeting_quote_and_signature(): void
@@ -95,5 +95,17 @@ class RuleSummarizerTest extends TestCase
     public function test_due_dates(string $sentence, ?string $expected): void
     {
         $this->assertSame($expected, (new RuleSummarizer)->dueDate($sentence, CarbonImmutable::parse('2026-11-12', 'America/Santiago')));
+    }
+
+    public function test_classifies_action_read_copy_and_noise(): void
+    {
+        $this->assertSame('accion', $this->summarize('¿Podrías enviarme la cotización?')->category);
+        $this->assertSame('leer', $this->summarize('Se adjunta el informe mensual.')->category);
+        $this->assertSame('ruido', $this->summarize('Ofertas de la semana.', ['from' => 'newsletter@tienda.cl'])->category);
+        $this->assertSame('copia', $this->summarize('Equipo, necesito el informe del siniestro.', ['to' => false])->category);
+        // En copia, pero lo nombran y le piden algo
+        $this->assertSame('accion', $this->summarize('Rubén, por favor confirma la cobertura.', ['to' => false])->category);
+        // En copia y lo nombran, sin pedirle nada
+        $this->assertSame('leer', $this->summarize('Le comenté a Rubén del cambio de tarifas.', ['to' => false])->category);
     }
 }

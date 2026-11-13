@@ -11,5 +11,8 @@ final readonly class EmailSummary
         public string $priority,
         public bool $needsReply,
         public array $actions,
+        public string $category = 'accion', // accion | leer | copia | ruido
     ) {}
+
+    public const CATEGORIES = ['accion', 'leer', 'copia', 'ruido'];
 }

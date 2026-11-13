@@ -83,3 +83,25 @@
         }));
     });
 })();
+
+/**
+ * Actualización automática: cada minuto de lunes a viernes entre 08:30 y 18:00, y una vez por hora fuera de ese horario.
+ * Solo con la pestaña visible. Si fn devuelve false (hay un formulario abierto) se reintenta al minuto siguiente.
+ */
+function sgAutoRefresh(fn) {
+    let last = Date.now();
+    const inWork = (d) => {
+        const m = d.getHours() * 60 + d.getMinutes();
+        return d.getDay() >= 1 && d.getDay() <= 5 && m >= 8 * 60 + 30 && m <= 18 * 60;
+    };
+    setInterval(() => {
+        const now = new Date();
+        if (document.visibilityState !== 'visible') return;
+        if (!inWork(now) && now - last < 3600000) return;
+        if (fn() !== false) last = Date.now();
+    }, 60000);
+    // Al volver a la pestaña después de un rato, actualiza de inmediato
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && Date.now() - last > (inWork(new Date()) ? 60000 : 3600000) && fn() !== false) last = Date.now();
+    });
+}

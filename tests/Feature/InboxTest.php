@@ -252,7 +252,7 @@ class InboxTest extends TestCase
         $mine = $account->emailItems()->create(['remote_id' => '1', 'subject' => 'Cotización urgente', 'received_at' => now(),
             'summary' => 'Pide cotización', 'needs_reply' => true, 'actions' => [['text' => 'Enviar cotización', 'due' => '2026-11-14']]]);
         $account->emailItems()->create(['remote_id' => '2', 'subject' => 'Newsletter', 'received_at' => now(),
-            'summary' => 'Boletín', 'actions' => []]);
+            'summary' => 'Boletín', 'kind' => 'ruido', 'actions' => []]);
         $other = $this->account(['user_id' => User::factory()]);
         $other->emailItems()->create(['remote_id' => '3', 'subject' => 'Correo de otra persona', 'received_at' => now(),
             'summary' => 'x', 'needs_reply' => true, 'actions' => []]);
@@ -262,7 +262,7 @@ class InboxTest extends TestCase
             ->assertOk()
             ->assertSee('Enviar cotización') // la primera acción es el título
             ->assertSee('Pide cotización')
-            ->assertDontSee('Boletín') // informativo: no es pendiente
+            ->assertDontSee('Boletín') // publicidad: no se muestra
             ->assertDontSee('Correo de otra persona');
 
         $this->actingAs($account->user)->patchJson("/pendientes/{$mine->id}", ['status' => 'done'])->assertOk()->assertJson(['status' => 'done']);
@@ -282,5 +282,52 @@ class InboxTest extends TestCase
 
         $this->assertTrue($zimbra->fresh()->mail_enabled);
         $this->assertFalse($caldav->fresh()->mail_enabled);
+    }
+
+    public function test_items_are_grouped_by_kind_and_can_be_followed_up(): void
+    {
+        $account = $this->account();
+        $action = $account->emailItems()->create(['remote_id' => 'a', 'subject' => 'Renovación póliza', 'received_at' => now(),
+            'summary' => 'Pide renovar', 'kind' => 'accion', 'needs_reply' => true, 'actions' => [['text' => 'Renovar póliza', 'due' => null]]]);
+        $read = $account->emailItems()->create(['remote_id' => 'b', 'subject' => 'Cambio de tarifas', 'received_at' => now(),
+            'summary' => 'Informa cambio', 'kind' => 'leer', 'actions' => []]);
+        $account->emailItems()->create(['remote_id' => 'c', 'subject' => 'Coordinación interna', 'received_at' => now(),
+            'summary' => 'Hilo en copia', 'kind' => 'copia', 'in_copy' => true, 'actions' => []]);
+
+        $this->actingAs($account->user)->get('/')->assertOk()
+            ->assertSee('Tu acción')->assertSee('Seguimiento')->assertSee('Para leer')->assertSee('En copia')
+            ->assertSee('Renovar póliza')->assertSee('Cambio de tarifas')->assertSee('Coordinación interna');
+
+        // Seguimiento: queda esperando respuesta y sigue visible en Hoy
+        $this->actingAs($account->user)->patchJson("/pendientes/{$action->id}", ['status' => 'waiting'])->assertOk();
+        $this->assertSame('waiting', $action->fresh()->status);
+        $this->actingAs($account->user)->get('/')->assertSee('Renovar póliza');
+
+        // Algo "para leer" puede pasar a Tu acción
+        $this->actingAs($account->user)->patchJson("/pendientes/{$read->id}", ['status' => 'pending', 'kind' => 'accion'])->assertOk();
+        $this->assertSame('accion', $read->fresh()->kind);
+        $this->actingAs($account->user)->patchJson("/pendientes/{$read->id}", ['status' => 'pending', 'kind' => 'ruido'])->assertUnprocessable();
+
+        // Visto: deja de mostrarse
+        $this->actingAs($account->user)->patchJson("/pendientes/{$read->id}", ['status' => 'done'])->assertOk();
+        $this->assertSame(1, $account->user->emailItems()->open()->where('kind', '!=', 'accion')->count());
+    }
+
+    public function test_digest_stores_kind_and_copy_flag(): void
+    {
+        $account = $this->account();
+        $this->fakeSearch([
+            $this->message('10', 'Cotización auto', '2026-11-12 10:00'),
+            $this->message('11', 'Reunión de equipo', '2026-11-12 11:00', 'equipo@empresa.cl', [
+                'e' => [['a' => 'equipo@empresa.cl', 't' => 'f'], ['a' => 'otro@empresa.cl', 't' => 't'], ['a' => 'rcid@example.cl', 't' => 'c']],
+            ]),
+        ]);
+
+        app(InboxDigest::class)->run($account);
+
+        $this->assertSame('accion', $account->emailItems()->where('remote_id', '10')->value('kind'));
+        $copy = $account->emailItems()->where('remote_id', '11')->first();
+        $this->assertSame('copia', $copy->kind);
+        $this->assertTrue($copy->in_copy);
     }
 }

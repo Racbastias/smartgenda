@@ -25,6 +25,7 @@ class ClaudeSummarizer implements EmailSummarizer
                         'summary' => ['type' => 'string'],
                         'priority' => ['type' => 'string', 'enum' => ['alta', 'media', 'baja']],
                         'needs_reply' => ['type' => 'boolean'],
+                        'category' => ['type' => 'string', 'enum' => EmailSummary::CATEGORIES],
                         'actions' => [
                             'type' => 'array',
                             'items' => [
@@ -38,7 +39,7 @@ class ClaudeSummarizer implements EmailSummarizer
                             ],
                         ],
                     ],
-                    'required' => ['id', 'summary', 'priority', 'needs_reply', 'actions'],
+                    'required' => ['id', 'summary', 'priority', 'needs_reply', 'category', 'actions'],
                     'additionalProperties' => false,
                 ],
             ],
@@ -57,10 +58,12 @@ class ClaudeSummarizer implements EmailSummarizer
 
         $today = CarbonImmutable::now($user->timezone ?: config('app.timezone'));
         $emails = collect($messages)->map(fn (MailMessage $m) => sprintf(
-            "<email id=\"%s\">\nDe: %s <%s>\nFecha: %s\nAsunto: %s\n\n%s\n</email>",
+            "<email id=\"%s\">\nDe: %s <%s>\nPara %s: %s\nFecha: %s\nAsunto: %s\n\n%s\n</email>",
             $m->remoteId,
             $m->fromName ?? '',
             $m->fromEmail ?? '',
+            $user->name,
+            $m->directlyAddressed ? 'destinatario directo' : 'solo en copia',
             $m->receivedAt->setTimezone($today->timezone)->format('Y-m-d H:i'),
             $m->subject,
             mb_substr($m->body, 0, 6000),
@@ -76,6 +79,9 @@ class ClaudeSummarizer implements EmailSummarizer
         - actions: lo que {$user->name} tiene que hacer o se comprometió a hacer, cada una con verbo en infinitivo
           ("Enviar cotización a Juan"). due es la fecha límite en formato YYYY-MM-DD si el correo la indica o se
           deduce ("el viernes" → la fecha de ese viernes); si no hay fecha, null. Lista vacía si no hay nada que hacer.
+        - category: "accion" si {$user->name} tiene que hacer o responder algo; "leer" si no pide nada pero
+          conviene que lo vea (información de un cliente, un cambio, una decisión que lo afecta), aunque esté en copia;
+          "copia" si está solo en copia y el tema no lo involucra; "ruido" para boletines, publicidad y avisos automáticos.
         - priority: alta si hay plazo cercano, un cliente o jefatura esperando o algo urgente; baja para
           boletines, notificaciones automáticas y publicidad; media en otro caso.
 
@@ -147,6 +153,7 @@ class ClaudeSummarizer implements EmailSummarizer
                 priority: in_array($e['priority'] ?? null, ['alta', 'media', 'baja'], true) ? $e['priority'] : 'media',
                 needsReply: (bool) ($e['needs_reply'] ?? false),
                 actions: $actions,
+                category: in_array($e['category'] ?? null, EmailSummary::CATEGORIES, true) ? $e['category'] : ($actions ? 'accion' : 'leer'),
             );
         }
 

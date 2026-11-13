@@ -24,7 +24,10 @@ class InboxController extends Controller
     public function update(Request $request, EmailItem $item): RedirectResponse|JsonResponse
     {
         abort_unless($item->account?->user_id === $request->user()->id, 404);
-        $data = $request->validate(['status' => ['required', 'in:pending,done,dismissed']]);
+        $data = $request->validate([
+            'status' => ['required', 'in:pending,doing,waiting,done,dismissed'],
+            'kind' => ['sometimes', 'in:accion,leer,copia'],
+        ]);
         $item->update($data);
         if ($request->wantsJson()) {
             return response()->json(['status' => $item->status]);
@@ -33,6 +36,8 @@ class InboxController extends Controller
         return back()->with('status', match ($data['status']) {
             EmailItem::DONE => 'Marcado como hecho.',
             EmailItem::DISMISSED => 'Descartado.',
+            EmailItem::DOING => 'En curso.',
+            EmailItem::WAITING => 'Queda en seguimiento.',
             default => 'Vuelve a pendientes.',
         });
     }
@@ -95,7 +100,7 @@ class InboxController extends Controller
         $user->blockedSenders()->firstOrCreate(['pattern' => $pattern]);
 
         $hidden = 0;
-        $user->emailItems()->where('status', EmailItem::PENDING)->get()
+        $user->emailItems()->open()->get()
             ->filter(fn (EmailItem $i) => BlockedSender::matches([$pattern], $i->from_email))
             ->each(function (EmailItem $i) use (&$hidden) {
                 $i->update(['status' => EmailItem::DISMISSED]);

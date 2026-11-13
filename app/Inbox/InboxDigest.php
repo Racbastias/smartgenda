@@ -80,6 +80,8 @@ class InboxDigest
             'received_at' => $message->receivedAt,
             'summary' => $summary->summary,
             'priority' => $summary->priority,
+            'kind' => $summary->category,
+            'in_copy' => ! $message->directlyAddressed,
             'needs_reply' => $summary->needsReply,
             'actions' => $summary->actions,
             'due_on' => $dueOn,
