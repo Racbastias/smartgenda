@@ -2,6 +2,7 @@
 
 namespace App\Calendar;
 
+use App\Inbox\MeetingTracker;
 use App\Models\CalendarAccount;
 use App\Models\Event;
 use Carbon\CarbonImmutable;
@@ -47,6 +48,13 @@ class CalendarSync
 
             $account->forceFill(['last_synced_at' => now(), 'last_error' => null])->save();
         });
+
+        // Una reunión recién agendada puede cerrar el pendiente del correo que la originó
+        try {
+            app(MeetingTracker::class)->reconcile($account->user);
+        } catch (Throwable $e) {
+            report($e);
+        }
 
         return true;
     }

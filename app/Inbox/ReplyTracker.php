@@ -11,6 +11,8 @@ use Illuminate\Support\Collection;
 /**
  * Cierra solos los pendientes que ya respondiste desde tu correo (en el computador, el teléfono o Smartgenda):
  * busca en Enviados una respuesta posterior en la misma conversación, o con el mismo asunto dirigida a quien escribió.
+ * Si en esa respuesta enviaste algo y quedas esperando (una cotización, una pregunta), el pendiente pasa a
+ * «Esperando respuesta»; cuando te contestan, se cierra.
  */
 class ReplyTracker
 {
@@ -38,7 +40,10 @@ class ReplyTracker
         $closed = 0;
         foreach ($open as $item) {
             if ($reply = $this->replyFor($item, $sent)) {
-                $item->forceFill(['status' => EmailItem::DONE, 'resolution' => 'replied', 'resolved_at' => $reply->sentAt])->save();
+                // Si con tu respuesta quedas esperando la de ellos (cotización, pregunta…), pasa a seguimiento
+                $item->forceFill($reply->awaitsAnswer()
+                    ? ['status' => EmailItem::WAITING, 'resolution' => 'awaiting', 'resolved_at' => $reply->sentAt]
+                    : ['status' => EmailItem::DONE, 'resolution' => 'replied', 'resolved_at' => $reply->sentAt])->save();
                 $closed++;
             }
         }

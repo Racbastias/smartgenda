@@ -35,7 +35,7 @@ class TodayController extends Controller
 
         // Trazabilidad: lo que se cerró solo (ya respondiste, o llegó un correo más nuevo de la misma conversación)
         $resolved = $user->emailItems()->with(['account:id,name,color', 'resolvedEvent:id,title,starts_at,all_day'])
-            ->whereNotNull('resolution')->where('resolved_at', '>=', $now->subDays(7)->utc())
+            ->whereNotNull('resolution')->whereIn('email_items.status', [EmailItem::DONE, EmailItem::DISMISSED])->where('resolved_at', '>=', $now->subDays(7)->utc())
             ->orderByDesc('resolved_at')->limit(12)->get();
 
         $next = collect($plan['items'])->first(fn ($i) => $i['type'] === 'event' && $i['start']->gt($now));

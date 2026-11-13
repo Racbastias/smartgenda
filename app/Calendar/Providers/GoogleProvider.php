@@ -209,7 +209,9 @@ class GoogleProvider implements CalendarProvider, MailProvider
             $recipients = collect(preg_split('/,(?=(?:[^"]*"[^"]*")*[^"]*$)/', ($headers['to'] ?? '').','.($headers['cc'] ?? '')))
                 ->map(fn ($a) => mb_strtolower((string) ($this->address($a)[1] ?? '')))->filter()->values()->all();
             $sent[] = new SentMessage($m->getThreadId(), $headers['subject'] ?? '', $recipients,
-                CarbonImmutable::createFromTimestampMs((int) $m->getInternalDate(), 'UTC'));
+                CarbonImmutable::createFromTimestampMs((int) $m->getInternalDate(), 'UTC'),
+                snippet: html_entity_decode((string) $m->getSnippet(), ENT_QUOTES | ENT_HTML5),
+                hasAttachment: $m->getPayload()?->getMimeType() === 'multipart/mixed');
         }
 
         return $sent;
