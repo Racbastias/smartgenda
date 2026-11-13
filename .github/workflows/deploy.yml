@@ -5,6 +5,7 @@ name: Deploy a Hostinger
 #   HOSTINGER_HOST, HOSTINGER_PORT (normalmente 65002), HOSTINGER_USER,
 #   HOSTINGER_SSH_KEY (clave privada), HOSTINGER_PATH (ej. domains/agenda.midominio.cl/smartgenda)
 # Opcionales: APP_URL, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, ANTHROPIC_API_KEY (se escriben en el .env del servidor)
+# Correo saliente (recuperar contraseña): MAIL_HOST, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD, MAIL_FROM_ADDRESS
 # Mientras no estén configurados, el deploy se salta sin fallar.
 
 on:
@@ -56,6 +57,11 @@ jobs:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MAIL_HOST: ${{ secrets.MAIL_HOST }}
+          MAIL_PORT: ${{ secrets.MAIL_PORT }}
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          MAIL_FROM_ADDRESS: ${{ secrets.MAIL_FROM_ADDRESS }}
         run: |
           mkdir -p ~/.ssh && echo "$SSH_KEY" > ~/.ssh/id && chmod 600 ~/.ssh/id
           SSH="ssh -i ~/.ssh/id -p ${PORT:-65002} -o StrictHostKeyChecking=accept-new"
@@ -69,8 +75,13 @@ jobs:
             ./ "$USER@$HOST:$TARGET/"
 
           # Las credenciales viajan por stdin (no en la línea de comandos del servidor)
+          MAIL_MAILER=""; [ -n "$MAIL_HOST" ] && MAIL_MAILER=smtp
+          MAIL_SCHEME=""; [ "$MAIL_PORT" = "465" ] && MAIL_SCHEME=smtps
+          MAIL_PASSWORD_Q=""; [ -n "$MAIL_PASSWORD" ] && MAIL_PASSWORD_Q="\"$MAIL_PASSWORD\""
           { printf 'GOOGLE_CLIENT_ID=%s\nGOOGLE_CLIENT_SECRET=%s\nANTHROPIC_API_KEY=%s\n' \
-              "$GOOGLE_CLIENT_ID" "$GOOGLE_CLIENT_SECRET" "$ANTHROPIC_API_KEY"; } \
+              "$GOOGLE_CLIENT_ID" "$GOOGLE_CLIENT_SECRET" "$ANTHROPIC_API_KEY"
+            printf 'MAIL_MAILER=%s\nMAIL_SCHEME=%s\nMAIL_HOST=%s\nMAIL_PORT=%s\nMAIL_USERNAME=%s\nMAIL_PASSWORD=%s\nMAIL_FROM_ADDRESS=%s\nMAIL_FROM_NAME=Smartgenda\n' \
+              "$MAIL_MAILER" "$MAIL_SCHEME" "$MAIL_HOST" "$MAIL_PORT" "$MAIL_USERNAME" "$MAIL_PASSWORD_Q" "$MAIL_FROM_ADDRESS"; } \
             | $SSH "$USER@$HOST" "umask 077 && cat > $TARGET/.deploy-secrets"
 
           $SSH "$USER@$HOST" "TARGET='$TARGET' APP_URL='$APP_URL' bash -s" <<'REMOTE'

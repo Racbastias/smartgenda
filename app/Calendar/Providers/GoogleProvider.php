@@ -186,7 +186,7 @@ class GoogleProvider implements CalendarProvider, MailProvider
         (new Gmail($this->client($account)))->users_messages->trash('me', $messageId);
     }
 
-    public function reply(CalendarAccount $account, string $messageId, string $toEmail, ?string $toName, string $subject, string $body): void
+    public function reply(CalendarAccount $account, string $messageId, string $toEmail, ?string $toName, string $subject, string $body, ?string $html = null): void
     {
         $gmail = new Gmail($this->client($account));
         $original = $gmail->users_messages->get('me', $messageId, ['format' => 'metadata', 'metadataHeaders' => ['Message-ID', 'References']]);
@@ -203,14 +203,27 @@ class GoogleProvider implements CalendarProvider, MailProvider
             $msgId ? 'In-Reply-To: '.$msgId : null,
             $msgId ? 'References: '.trim(($headers['references'] ?? '').' '.$msgId) : null,
             'MIME-Version: 1.0',
-            'Content-Type: text/plain; charset=UTF-8',
-            'Content-Transfer-Encoding: base64',
-        ]))."\r\n\r\n".chunk_split(base64_encode($body));
+        ]))."\r\n".$this->mimeBody($body, $html);
 
         $message = new GmailMessage;
         $message->setRaw(rtrim(strtr(base64_encode($mime), '+/', '-_'), '='));
         $message->setThreadId($original->getThreadId());
         $gmail->users_messages->send('me', $message);
+    }
+
+    /** Cuerpo MIME: solo texto, o texto + HTML (cuando hay firma). */
+    private function mimeBody(string $text, ?string $html): string
+    {
+        $part = fn (string $type, string $content) => "Content-Type: {$type}; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n".chunk_split(base64_encode($content));
+        if ($html === null) {
+            return $part('text/plain', $text);
+        }
+        $b = 'sg-'.bin2hex(random_bytes(8));
+
+        return "Content-Type: multipart/alternative; boundary=\"{$b}\"\r\n\r\n"
+            ."--{$b}\r\n".$part('text/plain', $text)
+            ."--{$b}\r\n".$part('text/html', '<!doctype html><html><body>'.$html.'</body></html>')
+            ."--{$b}--\r\n";
     }
 
     /** @return array<string, string> encabezados en minúsculas */

@@ -10,8 +10,16 @@
                     <td>{{ $user->name }} @if ($user->is_admin)<span class="badge">Admin</span>@endif</td>
                     <td class="muted">{{ $user->email }}</td>
                     <td class="tnum">{{ $user->calendar_accounts_count }}</td>
-                    <td style="text-align:right">
+                    <td style="text-align:right;white-space:nowrap">
                         @unless ($user->is(auth()->user()))
+                            <details class="pw-reset">
+                                <summary class="btn btn-sm btn-ghost">Nueva contraseña</summary>
+                                <form method="post" action="{{ route('users.password', $user) }}" class="row">
+                                    @csrf @method('put')
+                                    <input class="input" name="password" type="text" minlength="10" required placeholder="Mín. 10 caracteres" aria-label="Contraseña nueva para {{ $user->name }}" autocomplete="off">
+                                    <button class="btn btn-sm btn-primary">Guardar</button>
+                                </form>
+                            </details>
                             <form method="post" action="{{ route('users.destroy', $user) }}" onsubmit="return confirm(@js('¿Eliminar a '.$user->name.'?'))">@csrf @method('delete')<button class="btn btn-sm btn-ghost btn-danger">Eliminar</button></form>
                         @endunless
                     </td>

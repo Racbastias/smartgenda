@@ -4,7 +4,11 @@
     <div class="row" style="justify-content:space-between">
         <div class="row grow">
             <span class="dot" style="width:10px;height:10px"></span>
-            <strong>{{ $account->name }}</strong>
+            <form method="post" action="{{ route('accounts.update', $account) }}" class="rename" title="Toca para cambiar el nombre">
+                @csrf @method('patch')
+                <input class="rename-input" name="name" value="{{ $account->name }}" maxlength="60" required aria-label="Nombre de la agenda" onchange="this.form.submit()" size="{{ max(4, mb_strlen($account->name)) }}">
+                <x-icon name="pen"/>
+            </form>
             @if ($error)
                 <span class="badge badge-alert">Requiere atención</span>
             @else
@@ -37,6 +41,23 @@
         @csrf @method('patch')
         <div class="field"><span>Color en la agenda</span><x-color-picker :value="$account->color" autosubmit/></div>
     </form>
+
+    @if ($account->supportsMail())
+        <details class="signature" x-data="{ html: @js((string) $account->signature_html) }" @if ($errors->has('signature_html')) open @endif>
+            <summary><x-icon name="pen"/> Firma de correo <span class="muted small">{{ $account->signature_html ? '· activa' : '· sin firma' }}</span></summary>
+            <form method="post" action="{{ route('accounts.update', $account) }}" class="stack">
+                @csrf @method('patch')
+                <p class="hint">Pega el HTML de tu firma. Se agrega al final de cada respuesta que envíes desde esta cuenta.</p>
+                <textarea class="input mono" x-ref="sig" name="signature_html" rows="6" maxlength="20000" x-model="html" spellcheck="false" placeholder="<p><b>Tu nombre</b><br>Cargo · Empresa</p>"></textarea>
+                <div x-show="html.trim()" x-cloak>
+                    <p class="field-label">Vista previa</p>
+                    <iframe class="signature-preview" sandbox="" title="Vista previa de la firma" :srcdoc="'<!doctype html><meta charset=utf-8><body style=\'margin:12px;font:14px Arial,sans-serif;color:#222\'>' + html"></iframe>
+                </div>
+                <div class="row"><button class="btn btn-sm btn-primary">Guardar firma</button>
+                    <button class="btn btn-sm btn-ghost" type="submit" x-show="html.trim()" x-on:click="$refs.sig.value = ''; html = ''">Quitar firma</button></div>
+            </form>
+        </details>
+    @endif
 
     <div class="row">
         @if ($account->supportsMail())

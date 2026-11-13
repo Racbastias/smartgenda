@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'is_admin', 'timezone'])]
+#[Fillable(['name', 'email', 'password', 'is_admin', 'timezone', 'notify_mail', 'notify_meetings'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -24,6 +24,8 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_admin' => 'boolean',
+            'notify_mail' => 'boolean',
+            'notify_meetings' => 'boolean',
         ];
     }
 
@@ -49,5 +51,11 @@ class User extends Authenticatable
     public function emailItems(): HasManyThrough
     {
         return $this->hasManyThrough(EmailItem::class, CalendarAccount::class);
+    }
+
+    /** @return HasMany<PushSubscription, $this> */
+    public function pushSubscriptions(): HasMany
+    {
+        return $this->hasMany(PushSubscription::class);
     }
 }

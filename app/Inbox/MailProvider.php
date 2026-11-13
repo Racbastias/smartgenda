@@ -13,5 +13,5 @@ interface MailProvider
 
     public function trashMessage(CalendarAccount $account, string $messageId): void;
 
-    public function reply(CalendarAccount $account, string $messageId, string $toEmail, ?string $toName, string $subject, string $body): void;
+    public function reply(CalendarAccount $account, string $messageId, string $toEmail, ?string $toName, string $subject, string $body, ?string $html = null): void;
 }

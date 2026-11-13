@@ -7,6 +7,7 @@ use App\Inbox\InboxDigest;
 use App\Models\BlockedSender;
 use App\Models\CalendarAccount;
 use App\Models\EmailItem;
+use App\Support\Signature;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -67,7 +68,8 @@ class InboxController extends Controller
         $data = $request->validate(['body' => ['required', 'string', 'max:20000']]);
 
         try {
-            $providers->mail($account)->reply($account, $item->remote_id, $item->from_email, $item->from_name, (string) $item->subject, $data['body']);
+            $providers->mail($account)->reply($account, $item->remote_id, $item->from_email, $item->from_name, (string) $item->subject,
+                Signature::text($data['body'], $account->signature_html), Signature::html($data['body'], $account->signature_html));
         } catch (Throwable $e) {
             report($e);
 

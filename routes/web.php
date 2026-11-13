@@ -4,6 +4,8 @@ use App\Http\Controllers\AgendaController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CalendarAccountController;
 use App\Http\Controllers\InboxController;
+use App\Http\Controllers\PasswordResetController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TodayController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\EnsureAdmin;
@@ -14,12 +16,24 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
     Route::get('/primer-uso', [AuthController::class, 'setup'])->name('setup');
     Route::post('/primer-uso', [AuthController::class, 'storeSetup'])->middleware('throttle:5,1');
+    Route::get('/recuperar', [PasswordResetController::class, 'request'])->name('password.request');
+    Route::post('/recuperar', [PasswordResetController::class, 'email'])->name('password.email')->middleware('throttle:3,1');
+    Route::get('/recuperar/{token}', [PasswordResetController::class, 'edit'])->name('password.reset');
+    Route::post('/restablecer', [PasswordResetController::class, 'update'])->name('password.store')->middleware('throttle:5,1');
 });
 
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
     Route::get('/', [TodayController::class, 'index'])->name('today');
+
+    Route::get('/cuenta', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/cuenta', [ProfileController::class, 'update'])->name('profile.update');
+    Route::put('/cuenta/contrasena', [ProfileController::class, 'password'])->name('profile.password')->middleware('throttle:6,1');
+    Route::patch('/cuenta/avisos', [ProfileController::class, 'notifications'])->name('profile.notifications');
+    Route::post('/cuenta/avisos/dispositivos', [ProfileController::class, 'subscribe'])->name('push.subscribe');
+    Route::delete('/cuenta/avisos/dispositivos', [ProfileController::class, 'unsubscribe'])->name('push.unsubscribe');
+    Route::post('/cuenta/avisos/prueba', [ProfileController::class, 'test'])->name('push.test')->middleware('throttle:6,1');
     Route::get('/agenda', [AgendaController::class, 'index'])->name('agenda');
     Route::get('/agenda/semana', [AgendaController::class, 'week'])->name('agenda.week');
     Route::get('/agenda/eventos', [AgendaController::class, 'events'])->name('agenda.events');
@@ -47,6 +61,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware(EnsureAdmin::class)->group(function () {
         Route::get('/usuarios', [UserController::class, 'index'])->name('users.index');
         Route::post('/usuarios', [UserController::class, 'store'])->name('users.store');
+        Route::put('/usuarios/{user}/contrasena', [UserController::class, 'password'])->name('users.password');
         Route::delete('/usuarios/{user}', [UserController::class, 'destroy'])->name('users.destroy');
     });
 });

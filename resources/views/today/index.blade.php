@@ -227,7 +227,7 @@
                     <p class="small"><span class="muted">Para:</span> <span x-text="reply.to" style="overflow-wrap:anywhere"></span></p>
                     <p class="small"><span class="muted">Asunto:</span> <span x-text="reply.subject" style="overflow-wrap:anywhere"></span></p>
                     <textarea class="input" rows="8" x-ref="replyBody" x-model="reply.body" placeholder="Escribe tu respuesta…" required maxlength="20000"></textarea>
-                    <p class="hint">Se envía desde tu cuenta de correo y queda en Enviados.</p>
+                    <p class="hint">Se envía desde tu cuenta de correo, con tu firma si la configuraste en Integraciones, y queda en Enviados.</p>
                     <p class="error-text" x-show="reply.error" x-text="reply.error" role="alert"></p>
                 </div>
                 <div class="modal-foot">

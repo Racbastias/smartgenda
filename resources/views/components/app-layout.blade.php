@@ -67,7 +67,7 @@
             @endif
         </nav>
         <div class="sidebar-foot">
-            <span class="small muted grow" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $user->name }}</span>
+            <a href="{{ route('profile.edit') }}" @class(['sidebar-user grow', 'active' => request()->routeIs('profile.*')]) title="Mi cuenta"><x-icon name="user"/><span>{{ $user->name }}</span></a>
             <form method="post" action="{{ route('logout') }}">@csrf<button class="btn btn-ghost btn-sm" title="Salir"><x-icon name="logout"/><span class="sr-only">Salir</span></button></form>
         </div>
     </aside>
@@ -77,6 +77,7 @@
             <div class="brand" style="padding:0"><img class="brand-mark" src="{{ asset('img/logo-mark.png') }}" alt=""> Smartgenda</div>
             <div class="row">
                 @if ($user->is_admin)<a class="btn btn-ghost btn-sm" href="{{ route('users.index') }}"><x-icon name="users"/><span class="sr-only">Usuarios</span></a>@endif
+                <a class="btn btn-ghost btn-sm" href="{{ route('profile.edit') }}"><x-icon name="user"/><span class="sr-only">Mi cuenta</span></a>
                 <form method="post" action="{{ route('logout') }}">@csrf<button class="btn btn-ghost btn-sm"><x-icon name="logout"/><span class="sr-only">Salir</span></button></form>
             </div>
         </header>
@@ -101,5 +102,6 @@
 @endif
 <x-event-detail/>
 {{ $scripts ?? '' }}
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 </body>
 </html>

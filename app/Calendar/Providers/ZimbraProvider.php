@@ -171,7 +171,7 @@ class ZimbraProvider implements CalendarProvider, MailProvider
     }
 
     /** Responde un correo desde la cuenta (queda en Enviados y el original se marca como respondido). */
-    public function reply(CalendarAccount $account, string $messageId, string $toEmail, ?string $toName, string $subject, string $body): void
+    public function reply(CalendarAccount $account, string $messageId, string $toEmail, ?string $toName, string $subject, string $body, ?string $html = null): void
     {
         $subject = preg_match('/^\s*(re|rv|fw|fwd)\s*:/i', $subject) ? $subject : 'RE: '.$subject;
         $this->call($account, fn (string $token) => $this->soap($account, 'SendMsgRequest', [
@@ -181,7 +181,12 @@ class ZimbraProvider implements CalendarProvider, MailProvider
                 'rt' => 'r',
                 'e' => [array_filter(['t' => 't', 'a' => $toEmail, 'p' => $toName])],
                 'su' => ['_content' => $subject],
-                'mp' => [['ct' => 'text/plain', 'content' => ['_content' => $body]]],
+                'mp' => [$html === null
+                    ? ['ct' => 'text/plain', 'content' => ['_content' => $body]]
+                    : ['ct' => 'multipart/alternative', 'mp' => [
+                        ['ct' => 'text/plain', 'content' => ['_content' => $body]],
+                        ['ct' => 'text/html', 'content' => ['_content' => $html]],
+                    ]]],
             ],
         ], $token));
     }

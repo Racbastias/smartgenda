@@ -6,6 +6,7 @@ use App\Calendar\ProviderRegistry;
 use App\Models\BlockedSender;
 use App\Models\CalendarAccount;
 use App\Models\EmailItem;
+use App\Support\Push;
 use Carbon\CarbonImmutable;
 use Throwable;
 
@@ -46,6 +47,7 @@ class InboxDigest
                 ->values();
 
             $created = 0;
+            $toAct = [];
             foreach ($messages->chunk(self::BATCH) as $chunk) {
                 $chunk = $chunk->values()->all();
                 $summaries = $this->summarizer->summarize($account->user, $chunk);
@@ -53,8 +55,16 @@ class InboxDigest
                     if ($summary = $summaries[$message->remoteId] ?? null) {
                         $this->store($account, $message, $summary);
                         $created++;
+                        if ($summary->category === 'accion' || ($summary->priority === 'alta' && $summary->category !== 'ruido')) {
+                            $toAct[] = [$message, $summary];
+                        }
                     }
                 }
+            }
+
+            // Aviso al teléfono: solo correos nuevos que piden algo (no en la primera lectura de varios días)
+            if ($toAct && $account->mail_synced_at && $account->user->notify_mail) {
+                $this->notify($account, $toAct);
             }
 
             $account->forceFill(['mail_synced_at' => $startedAt, 'mail_error' => null])->save();
@@ -66,6 +76,20 @@ class InboxDigest
 
             return 0;
         }
+    }
+
+    /** @param  list<array{0: MailMessage, 1: EmailSummary}>  $items */
+    private function notify(CalendarAccount $account, array $items): void
+    {
+        [$message, $summary] = $items[0];
+        $alta = collect($items)->contains(fn ($i) => $i[1]->priority === 'alta');
+        $who = $message->fromName ?: $message->fromEmail ?: 'Alguien';
+
+        [$title, $body] = count($items) === 1
+            ? [($alta ? 'Prioridad alta · ' : 'Requiere tu acción · ').$account->name, "{$who}: {$summary->summary}"]
+            : [count($items).' correos nuevos requieren tu acción', $account->name.($alta ? ' · hay prioridad alta' : '').". El último, de {$who}."];
+
+        app(Push::class)->send($account->user, $title, mb_strimwidth($body, 0, 180, '…'), route('today', absolute: false), 'correo');
     }
 
     private function store(CalendarAccount $account, MailMessage $message, EmailSummary $summary): void
