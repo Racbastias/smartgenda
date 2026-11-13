@@ -21,6 +21,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/', [TodayController::class, 'index'])->name('today');
     Route::get('/agenda', [AgendaController::class, 'index'])->name('agenda');
+    Route::get('/agenda/semana', [AgendaController::class, 'week'])->name('agenda.week');
     Route::get('/agenda/eventos', [AgendaController::class, 'events'])->name('agenda.events');
     Route::post('/agenda/eventos', [AgendaController::class, 'store'])->name('agenda.store');
     Route::delete('/agenda/eventos/{event}', [AgendaController::class, 'destroy'])->name('agenda.destroy');
