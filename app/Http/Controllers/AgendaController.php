@@ -78,6 +78,7 @@ class AgendaController extends Controller
                 'location' => $e->location,
                 'description' => $e->description,
                 'conflict' => isset($conflicts[$e->id]),
+                'join' => $e->meetingLink(),
             ],
         ])->values());
     }

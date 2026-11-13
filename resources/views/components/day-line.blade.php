@@ -68,11 +68,15 @@
                 <li @class(['dl-row', 'dl-event', 'is-past' => $item['past'], 'is-current' => $item['current'], 'is-conflict' => $item['conflict']]) style="--cal-color: {{ $e->calendarAccount->color }}">
                     <time class="tnum">{{ $item['start']->format('H:i') }}</time>
                     <span class="dl-rail"><span class="dl-node"></span></span>
+                    @php($join = $e->meetingLink())
+                    <div class="dl-cell">
                     <button type="button" class="dl-body ev" x-on:click="sgShowEvent(@js($e->detail($tz)))">
                         <strong>@if ($item['conflict'])<x-icon name="flame" class="dl-flag"/>@endif{{ $e->title }}</strong>
                         <span class="dl-meta tnum">{{ $item['start']->format('H:i') }}–{{ $item['end']->format('H:i') }} · {{ $e->calendarAccount->name }}@if ($e->location) · {{ $e->location }}@endif</span>
                         @if ($item['conflict'])<span class="dl-meta dl-warn">Choca con otra agenda</span>@endif
                     </button>
+                    @if ($join && ! $item['past'])<a class="dl-join" href="{{ $join['url'] }}" target="_blank" rel="noopener"><x-icon name="video"/>Unirse por {{ $join['label'] }}</a>@endif
+                    </div>
                 </li>
             @endif
         @empty

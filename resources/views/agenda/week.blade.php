@@ -86,7 +86,7 @@
                             const e = info.event, p = e.extendedProps;
                             const t = d => d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', hour12: false });
                             const day = e.start.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
-                            sgShowEvent({ id: e.id, title: e.title, agenda: p.agenda, color: p.color, location: p.location, description: p.description,
+                            sgShowEvent({ id: e.id, title: e.title, agenda: p.agenda, color: p.color, location: p.location, description: p.description, join: p.join,
                                 when: e.allDay ? `${day} · todo el día` : `${day} · ${t(e.start)}–${t(e.end || e.start)}` });
                         },
                         select: info => sgNewEvent({ start: info.start, end: info.end, allDay: info.allDay }),

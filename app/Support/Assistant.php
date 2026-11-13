@@ -28,24 +28,13 @@ class Assistant
             default => ['moon', "Buenas noches, {$first}"],
         };
 
-        $parts = [];
-        if ($counts['alta'] > 0) {
-            $parts[] = $counts['alta'] === 1
-                ? 'Hay 1 tema con prioridad alta: parte por ahí.'
-                : "Hay {$counts['alta']} temas con prioridad alta: parte por ahí.";
-        } elseif ($counts['accion'] > 0) {
-            $parts[] = $now->hour < 12
-                ? ($counts['accion'] === 1 ? 'Mientras sale el café: 1 correo espera tu acción.' : "Mientras sale el café: {$counts['accion']} correos esperan tu acción.")
-                : ($counts['accion'] === 1 ? '1 correo espera tu acción.' : "{$counts['accion']} correos esperan tu acción.");
-        } else {
-            $parts[] = self::CALM[$now->dayOfYear % count(self::CALM)];
-        }
-        if ($counts['seguimiento'] > 0) {
-            $parts[] = $counts['seguimiento'] === 1 ? 'Tienes 1 respuesta por perseguir.' : "Tienes {$counts['seguimiento']} respuestas por perseguir.";
-        }
-        if ($next) {
-            $parts[] = "Tu próxima reunión: {$next['title']} a las {$next['time']}.";
-        }
+        // Los números y la próxima reunión se muestran como tarjetas; aquí va solo el tono del día.
+        $parts = [match (true) {
+            $counts['alta'] > 0 => 'Hay temas con prioridad alta: parte por ahí.',
+            $counts['accion'] > 0 && $now->hour < 12 => 'Mientras sale el café, esto es lo que tienes.',
+            $counts['accion'] > 0 => 'Esto es lo que te queda por mover hoy.',
+            default => self::CALM[$now->dayOfYear % count(self::CALM)],
+        }];
         if (! $workHours) {
             $parts[] = 'Fuera de horario reviso el correo cada hora.';
         }

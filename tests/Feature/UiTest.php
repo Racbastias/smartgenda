@@ -81,6 +81,26 @@ class UiTest extends TestCase
         $this->actingAs($account->user)->get('/agenda/semana')->assertOk()->assertSee('id="calendar"', false);
     }
 
+    public function test_next_meeting_is_highlighted_with_its_join_link(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-12 09:00', 'America/Santiago'));
+        $account = CalendarAccount::factory()->create();
+        $account->events()->create([
+            'remote_id' => 'p', 'title' => 'Reunión Presto', 'all_day' => false,
+            'starts_at' => CarbonImmutable::parse('2026-11-12 11:00', 'America/Santiago')->utc(),
+            'ends_at' => CarbonImmutable::parse('2026-11-12 12:00', 'America/Santiago')->utc(),
+            'description' => "Únete a la reunión:\nhttps://teams.microsoft.com/l/meetup-join/abc123 \nGracias",
+        ]);
+
+        $this->assertSame(['url' => 'https://teams.microsoft.com/l/meetup-join/abc123', 'label' => 'Teams'], $account->events()->first()->meetingLink());
+        $this->actingAs($account->user)->get('/')->assertOk()
+            ->assertSee('Próxima reunión · en 2 h')
+            ->assertSee('Reunión Presto')
+            ->assertSee('href="https://teams.microsoft.com/l/meetup-join/abc123"', false)
+            ->assertSee('Unirse por Teams');
+        CarbonImmutable::setTestNow();
+    }
+
     public function test_pages_render_for_a_new_user(): void
     {
         $user = User::factory()->create();
