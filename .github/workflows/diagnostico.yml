@@ -4,6 +4,11 @@ name: Diagnóstico del servidor
 # los correos y tokens de los mensajes de error se ocultan.
 on:
   workflow_dispatch:
+    inputs:
+      ejecutar:
+        description: 'Sincronizar agendas y leer correo ahora, antes de mostrar el estado'
+        type: boolean
+        default: false
 
 jobs:
   estado:
@@ -14,12 +19,18 @@ jobs:
       USER: ${{ secrets.HOSTINGER_USER }}
       TARGET: ${{ secrets.HOSTINGER_PATH }}
       SSH_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+      EJECUTAR: ${{ inputs.ejecutar && '1' || '' }}
     steps:
       - name: Estado
         run: |
           mkdir -p ~/.ssh && echo "$SSH_KEY" > ~/.ssh/id && chmod 600 ~/.ssh/id
-          ssh -i ~/.ssh/id -p ${PORT:-65002} -o StrictHostKeyChecking=accept-new "$USER@$HOST" "TARGET='$TARGET' bash -s" <<'REMOTE'
+          ssh -i ~/.ssh/id -p ${PORT:-65002} -o StrictHostKeyChecking=accept-new "$USER@$HOST" "TARGET='$TARGET' EJECUTAR='$EJECUTAR' bash -s" <<'REMOTE'
           cd "$HOME/$TARGET"
+          if [ -n "$EJECUTAR" ]; then
+            echo "== Ejecutando ahora (salida oculta) =="
+            php artisan agenda:sync >/dev/null 2>&1; echo "agenda:sync terminó con código $?"
+            php artisan correo:resumir >/dev/null 2>&1; echo "correo:resumir terminó con código $?"
+          fi
           echo "== Cron =="
           crontab -l 2>/dev/null | grep -c 'schedule:run' | sed 's/^/líneas con schedule:run: /'
           echo "== Estado =="
