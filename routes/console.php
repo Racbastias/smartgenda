@@ -2,6 +2,7 @@
 
 use App\Support\Assistant;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schedule;
 
 // En Hostinger: cron cada minuto con `php artisan schedule:run` (ver README).
@@ -15,3 +16,6 @@ Schedule::command('correo:resumir')->everyMinute()->when($toca)->withoutOverlapp
 
 // Aviso de reuniones (siempre cada minuto: es solo una consulta a la base)
 Schedule::command('agenda:avisar')->everyMinute()->withoutOverlapping(5);
+
+// Latido: deja registro de que el cron está corriendo (lo muestra `smartgenda:estado`)
+Schedule::call(fn () => Cache::forever('smartgenda:heartbeat', now()->utc()->toDateTimeString()))->name('latido')->everyMinute();
