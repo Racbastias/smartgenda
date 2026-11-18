@@ -34,7 +34,7 @@ jobs:
             echo "Faltan secretos de Hostinger; no se publica."; echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: steps.check.outputs.skip != 'true'
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
